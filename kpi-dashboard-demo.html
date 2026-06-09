@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPI ダッシュボード（デモ）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --paper:#f4f1ea;
+    --panel:#fffdf8;
+    --ink:#1d1b16;
+    --ink-soft:#6b6557;
+    --line:#ddd6c8;
+    --accent:#b4531a;      /* 出荷台数 / プライマリ操作 */
+    --teal:#0f6e63;        /* ステータス */
+    --gray:#8a8475;        /* 目標値 */
+    --good:#2f7d4f;
+    --bad:#b23b3b;
+    --shadow:0 1px 0 rgba(0,0,0,.04), 0 8px 24px -16px rgba(0,0,0,.25);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(120% 120% at 100% 0%, #faf7f0 0%, var(--paper) 55%) fixed;
+    color:var(--ink);
+    font-family:"IBM Plex Sans JP",sans-serif;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:"IBM Plex Mono",monospace;font-feature-settings:"tnum"}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 22px 80px}
+
+  /* ---- header ---- */
+  header.bar{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    padding-bottom:18px;border-bottom:2px solid var(--ink);margin-bottom:18px;
+  }
+  .brand{display:flex;flex-direction:column;gap:2px;margin-right:auto}
+  .brand h1{font-size:20px;font-weight:700;letter-spacing:.02em;margin:0;line-height:1.1}
+  .brand .sub{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft)}
+  .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gray);vertical-align:middle;margin-right:6px}
+  .status-dot.ok{background:var(--good)}
+  .status-dot.warn{background:var(--accent)}
+  .updated{font-size:12px;color:var(--ink-soft)}
+  .updated .t{color:var(--ink)}
+
+  button{font-family:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:9px 14px;font-size:13px;font-weight:500;transition:.12s;white-space:nowrap}
+  button:hover{border-color:var(--ink)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{filter:brightness(1.06)}
+  button.ghost{background:transparent}
+  button:disabled{opacity:.45;cursor:not-allowed}
+
+  /* ---- banner ---- */
+  .banner{display:none;background:#fff4e6;border:1px solid #e9c79a;color:#7a4a14;padding:10px 14px;border-radius:10px;margin-bottom:16px;font-size:13px}
+  .banner.show{display:block}
+
+  /* ---- slicer ---- */
+  .slicer{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .chip{padding:7px 16px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-weight:500;font-size:13px}
+  .chip.active{background:var(--ink);color:#faf7f0;border-color:var(--ink)}
+  .chip.disabled{opacity:.4}
+
+  /* ---- KPI cards ---- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .card .lab{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px}
+  .card .val{font-size:30px;font-weight:600;line-height:1;letter-spacing:-.01em}
+  .card .val .u{font-size:14px;color:var(--ink-soft);font-weight:500;margin-left:3px}
+  .card .meta{font-size:12px;color:var(--ink-soft);margin-top:8px}
+  .card .meta b{color:var(--good)}
+  .card .meta b.neg{color:var(--bad)}
+  .card .accent-edge{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--gray)}
+  .card.status .accent-edge{background:var(--teal)}
+  .card.ship .accent-edge{background:var(--accent)}
+
+  /* ---- chart ---- */
+  .chart-wrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 18px 8px;box-shadow:var(--shadow);margin-bottom:22px}
+  .chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .chart-head h2{font-size:15px;font-weight:600;margin:0}
+  .chart-head .hint{font-size:12px;color:var(--ink-soft)}
+  .metric-toggle{display:inline-flex;gap:4px;background:#f0ece2;border:1px solid var(--line);border-radius:9px;padding:3px}
+  .metric-toggle button{border:none;background:transparent;padding:5px 12px;border-radius:6px;font-size:12px;color:var(--ink-soft);font-weight:500}
+  .metric-toggle button:hover{color:var(--ink)}
+  .metric-toggle button.on{background:var(--ink);color:#faf7f0}
+  .chart-box{position:relative;height:380px}
+  .empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-soft);font-size:13px;text-align:center;padding:20px}
+  /* ---- x-window ---- */
+  .xwin{margin:2px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fffefb}
+  .xwin.disabled{opacity:.5;pointer-events:none}
+  .xwin-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .xwin-lab{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
+  .xwin-range{font-size:12px;font-weight:600;color:var(--ink-soft);white-space:nowrap}
+  .xwin-quick{display:inline-flex;gap:4px;background:#f0ece2;border:1px solid var(--line);border-radius:9px;padding:3px;margin-left:auto}
+  .xwin-quick button{border:none;background:transparent;padding:4px 10px;border-radius:6px;font-size:12px;color:var(--ink-soft);font-weight:500}
+  .xwin-quick button:hover{color:var(--ink)}
+  .xwin-quick button.on{background:var(--ink);color:#faf7f0}
+  .xwin-sliders{position:relative;height:22px;flex:0 0 200px;width:200px}
+  .xwin-sliders input[type=range]{position:absolute;left:0;top:0;width:100%;margin:0;-webkit-appearance:none;appearance:none;background:transparent;pointer-events:none;height:22px}
+  .xwin-sliders input[type=range]::-webkit-slider-runnable-track{height:4px;background:var(--line);border-radius:3px;margin-top:9px}
+  .xwin-sliders input[type=range]::-moz-range-track{height:4px;background:var(--line);border-radius:3px}
+  .xwin-sliders input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;pointer-events:auto;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);margin-top:-6px;cursor:pointer}
+  .xwin-sliders input[type=range]::-moz-range-thumb{pointer-events:auto;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:pointer}
+
+  /* ---- settings ---- */
+  details.settings{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+  details.settings>summary{list-style:none;cursor:pointer;padding:16px 18px;font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px}
+  details.settings>summary::-webkit-details-marker{display:none}
+  details.settings>summary .tri{transition:.15s;color:var(--ink-soft)}
+  details.settings[open]>summary .tri{transform:rotate(90deg)}
+  .settings-body{padding:0 18px 18px}
+  .ent-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .ent{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fffefb}
+  .ent h3{margin:0 0 10px;font-size:13px;display:flex;align-items:center;gap:8px}
+  .ent h3 .num{font-family:"IBM Plex Mono";font-size:11px;background:var(--ink);color:#faf7f0;border-radius:5px;padding:1px 6px}
+  .fld{margin-bottom:9px}
+  .fld label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:3px;letter-spacing:.02em}
+  .fld input,.fld select{width:100%;font-family:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink)}
+  .fld input.mono{font-family:"IBM Plex Mono"}
+  .fld input:focus,.fld select:focus{outline:none;border-color:var(--ink)}
+  .filebtn{width:100%;text-align:left;font-size:12px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .filebtn .fn{color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .rulebox{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px;display:flex;gap:22px;flex-wrap:wrap;align-items:center}
+  .rulebox .r{font-size:12px;color:var(--ink-soft)}
+  .rulebox .r b{color:var(--ink);font-weight:600}
+  .scaleinp{width:66px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px;background:#fff;color:var(--ink);margin-left:4px}
+  .scaleinp:focus{outline:none;border-color:var(--ink)}
+  .cfg-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .msg{font-size:12px;margin-top:10px;min-height:16px}
+  .msg.err{color:var(--bad)}
+  .msg.ok{color:var(--good)}
+
+  @media(max-width:860px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .ent-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="bar">
+    <div class="brand">
+      <h1>KPI ダッシュボード</h1>
+      <span class="sub">Target · Status · Shipment</span>
+    </div>
+    <div class="updated"><span id="statusDot" class="status-dot"></span><span id="statusText">未読込</span> · 最終更新 <span class="t mono" id="updatedAt">—</span></div>
+    <button class="ghost" id="reloadBtn" title="設定済みファイルを再読込">↻ 更新</button>
+  </header>
+
+  <div class="banner" id="capBanner"></div>
+
+  <div class="slicer" id="slicer"></div>
+
+  <div class="kpis" id="kpis">
+    <div class="card"><div class="accent-edge"></div><div class="lab">目標値</div><div class="val mono" id="kpiTarget">—<span class="u">%</span></div><div class="meta" id="kpiTargetMeta">&nbsp;</div></div>
+    <div class="card status"><div class="accent-edge"></div><div class="lab">ステータス</div><div class="val mono" id="kpiStatus">—<span class="u">%</span></div><div class="meta" id="kpiStatusMeta">&nbsp;</div></div>
+    <div class="card"><div class="accent-edge"></div><div class="lab">達成 (実績 − 目標)</div><div class="val mono" id="kpiGap">—<span class="u">pt</span></div><div class="meta" id="kpiGapMeta">&nbsp;</div></div>
+    <div class="card ship"><div class="accent-edge"></div><div class="lab">出荷台数</div><div class="val mono" id="kpiShip">—<span class="u">台</span></div><div class="meta" id="kpiShipMeta">&nbsp;</div></div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-head">
+      <h2 id="chartTitle">グラフ</h2>
+      <div class="metric-toggle" id="metricToggle" style="display:none">
+        <button data-metric="target">目標値</button>
+        <button data-metric="status">ステータス</button>
+        <button data-metric="shipment">出荷台数</button>
+      </div>
+      <span class="hint" id="chartHint">折れ線＝％(左軸) ／ 棒＝台数(右軸)</span>
+    </div>
+    <div class="xwin" id="xwin">
+      <div class="xwin-row">
+        <span class="xwin-lab">表示区間</span>
+        <div class="xwin-sliders">
+          <input type="range" id="xwinStart" min="0" max="0" value="0">
+          <input type="range" id="xwinEnd" min="0" max="0" value="0">
+        </div>
+        <span class="xwin-range mono" id="xwinRange">—</span>
+        <div class="xwin-quick">
+          <button data-win="all">全期間</button>
+          <button data-win="12">直近12</button>
+          <button data-win="8">直近8</button>
+          <button data-win="4">直近4</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <canvas id="chart"></canvas>
+      <div class="empty" id="chartEmpty">データ未読込です。下の「設定」でファイルとセル範囲を指定し、「更新」を押してください。</div>
+    </div>
+  </div>
+
+  <details class="settings" id="settings">
+    <summary><span class="tri">▶</span> 設定（ファイル・シート・セル範囲）</summary>
+    <div class="settings-body">
+      <div class="ent-grid" id="entGrid"></div>
+
+      <div class="rulebox">
+        <span class="r"><b>週番号ルール</b>（固定）</span>
+        <span class="r">起点曜日: <b>日曜</b></span>
+        <span class="r">第1週: <b>1/1を含む週</b></span>
+        <span class="r">表記: <b>W + 西暦下1桁 + 週2桁</b>（例 2026/1/1 → W601）</span>
+      </div>
+
+      <div class="rulebox scalebox">
+        <span class="r"><b>軸スケール</b></span>
+        <span class="r">％ 最小<input type="number" id="axPctMin" class="scaleinp mono"></span>
+        <span class="r">％ 最大<input type="number" id="axPctMax" class="scaleinp mono"></span>
+        <span class="r">台数 最小<input type="number" id="axUnitMin" class="scaleinp mono"></span>
+        <span class="r">台数 最大<input type="number" id="axUnitMax" class="scaleinp mono"></span>
+      </div>
+
+      <div class="cfg-actions">
+        <button class="primary" id="reloadBtn2">↻ 更新（全ファイル再読込）</button>
+        <button id="saveBtn">💾 設定を保存</button>
+        <button id="exportBtn">設定JSONをエクスポート</button>
+        <button id="importBtn">設定JSONをインポート</button>
+        <input type="file" id="importFile" accept="application/json" hidden>
+      </div>
+      <div class="msg" id="msg">&nbsp;</div>
+    </div>
+  </details>
+
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   状態
+   ============================================================ */
+const PCT = true;
+const METRICS = [
+  {key:"target",   label:"目標値",  unit:"%",  pct:true},
+  {key:"status",   label:"ステータス", unit:"%",  pct:true},
+  {key:"shipment", label:"出荷台数", unit:"台", pct:false},
+];
+
+function defaultConfig(){
+  return {
+    entities:[0,1,2].map(i=>({
+      id:"ent"+(i+1),
+      name:"製品"+String.fromCharCode(65+i),
+      fileName:"",
+      handle:null,
+      sheet:"",
+      sheetNames:[],
+      x:{type:"date", range:""},          // type: "date" | "weeklabel"
+      target:{range:""},
+      status:{range:""},
+      shipment:{range:""},
+      _data:[],   // [{x, target, status, shipment}]
+      _error:""
+    })),
+    activeId:"ent1",
+    compareMetrics:{target:true, status:true, shipment:true},
+    axis:{pctMin:40, pctMax:100, unitMin:0, unitMax:150},
+    xWindow:{all:true, startLabel:null, endLabel:null}
+  };
+}
+
+let config = defaultConfig();
+let chart = null;
+const ALL_ID = "__all";
+const hasFSA = !!(window.showOpenFilePicker);
+
+/* ============================================================
+   IndexedDB（設定とファイルハンドルの永続化）
+   ============================================================ */
+function openDB(){
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open("kpi-dash-demo",1);
+    r.onupgradeneeded = ()=> r.result.createObjectStore("app");
+    r.onsuccess = ()=> res(r.result);
+    r.onerror = ()=> rej(r.error);
+  });
+}
+async function dbSet(k,v){
+  try{
+    const db = await openDB();
+    await new Promise((res,rej)=>{ const t=db.transaction("app","readwrite"); t.objectStore("app").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); });
+  }catch(e){ /* サンドボックス等で不可。無視 */ }
+}
+async function dbGet(k){
+  try{
+    const db = await openDB();
+    return await new Promise((res,rej)=>{ const t=db.transaction("app","readonly"); const q=t.objectStore("app").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); });
+  }catch(e){ return undefined; }
+}
+
+/* 永続化用：ハンドルは含めるが _data 等の一時情報は除く */
+async function persist(){
+  const slim = {
+    activeId: config.activeId,
+    compareMetrics: config.compareMetrics,
+    axis: config.axis,
+    xWindow: config.xWindow,
+    entities: config.entities.map(e=>({
+      id:e.id, name:e.name, fileName:e.fileName, handle:e.handle,
+      sheet:e.sheet, sheetNames:e.sheetNames,
+      x:{type:e.x.type, range:e.x.range},
+      target:{range:e.target.range},
+      status:{range:e.status.range},
+      shipment:{range:e.shipment.range},
+    }))
+  };
+  await dbSet("config", slim);
+}
+async function restore(){
+  const saved = await dbGet("config");
+  if(!saved) return false;
+  config = defaultConfig();
+  config.activeId = saved.activeId || "ent1";
+  config.compareMetrics = saved.compareMetrics || {target:true, status:true, shipment:true};
+  config.axis = Object.assign({pctMin:40, pctMax:100, unitMin:0, unitMax:150}, saved.axis||{});
+  config.xWindow = saved.xWindow || {all:true, startLabel:null, endLabel:null};
+  saved.entities.forEach((s,i)=>{
+    if(!config.entities[i]) return;
+    Object.assign(config.entities[i], {
+      id:s.id, name:s.name, fileName:s.fileName, handle:s.handle||null,
+      sheet:s.sheet||"", sheetNames:s.sheetNames||[],
+      x:{type:s.x?.type||"date", range:s.x?.range||""},
+      target:{range:s.target?.range||""},
+      status:{range:s.status?.range||""},
+      shipment:{range:s.shipment?.range||""},
+    });
+  });
+  return true;
+}
+
+/* ============================================================
+   週番号（日曜起点・1/1を含む週＝第1週・年は下1桁）
+   ============================================================ */
+function sundayOnOrBefore(d){
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - x.getDay());
+  return x;
+}
+function week1Sunday(Y){ return sundayOnOrBefore(new Date(Y,0,1)); }
+function dateToWeekLabel(d){
+  const S = sundayOnOrBefore(d);
+  let Y = d.getFullYear()+1;
+  while(week1Sunday(Y) > S) Y--;
+  const wk = Math.round((S - week1Sunday(Y)) / (7*86400000)) + 1;
+  return "W" + (Y % 10) + String(wk).padStart(2,"0");
+}
+
+/* ============================================================
+   セル範囲の読み取り（1次元想定・読み順で配列化）
+   ============================================================ */
+function readRangeCells(ws, a1){
+  a1 = (a1||"").trim();
+  if(!a1) return [];
+  let ref;
+  try{ ref = XLSX.utils.decode_range(a1); }catch(e){ return []; }
+  const out = [];
+  for(let r=ref.s.r; r<=ref.e.r; r++){
+    for(let c=ref.s.c; c<=ref.e.c; c++){
+      out.push(ws[XLSX.utils.encode_cell({r,c})]);
+    }
+  }
+  return out;
+}
+function cellToNumber(cell, isPct){
+  if(!cell || cell.v===undefined || cell.v===null || cell.v==="") return null;
+  let v = cell.v;
+  if(typeof v === "string"){
+    const p = parseFloat(v.replace(/[%,\s,]/g,""));
+    return isNaN(p) ? null : p;
+  }
+  if(typeof v === "number"){
+    if(isPct && cell.z && String(cell.z).includes("%")) v = v*100;
+    return v;
+  }
+  return null;
+}
+function cellToWeek(cell, xType){
+  if(!cell || cell.v===undefined || cell.v===null || cell.v==="") return null;
+  if(xType === "weeklabel") return String(cell.v).trim();
+  // date
+  if(cell.v instanceof Date) return dateToWeekLabel(cell.v);
+  if(typeof cell.v === "number"){
+    const o = XLSX.SSF ? XLSX.SSF.parse_date_code(cell.v) : null;
+    if(o) return dateToWeekLabel(new Date(o.y, o.m-1, o.d));
+  }
+  const d = new Date(cell.v);
+  return isNaN(d) ? String(cell.v).trim() : dateToWeekLabel(d);
+}
+
+/* ============================================================
+   1エンティティ分のワークブックを解析
+   ============================================================ */
+function parseEntity(ent, wb){
+  ent._error = "";
+  ent._data = [];
+  const sheetName = ent.sheet || wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  if(!ws){ ent._error = "シート「"+sheetName+"」が見つかりません"; return; }
+
+  const xCells = readRangeCells(ws, ent.x.range);
+  if(xCells.length === 0){ ent._error = "X軸(週)の範囲が未指定です"; return; }
+
+  const tCells = readRangeCells(ws, ent.target.range);
+  const sCells = readRangeCells(ws, ent.status.range);
+  const shCells = readRangeCells(ws, ent.shipment.range);
+
+  const n = xCells.length;
+  for(let i=0;i<n;i++){
+    const wk = cellToWeek(xCells[i], ent.x.type);
+    if(!wk) continue;
+    ent._data.push({
+      x: wk,
+      target:   tCells.length  ? cellToNumber(tCells[i], true)  : null,
+      status:   sCells.length  ? cellToNumber(sCells[i], true)  : null,
+      shipment: shCells.length ? cellToNumber(shCells[i], false): null,
+    });
+  }
+  if(ent._data.length === 0) ent._error = "読み取れる行がありません（範囲・X軸タイプを確認）";
+}
+
+/* ============================================================
+   ファイル読み込み（FSA優先・権限確保）
+   ============================================================ */
+async function ensurePermission(handle){
+  if(!handle || !handle.queryPermission) return true; // fallback File は権限不要
+  const opts = {mode:"read"};
+  if((await handle.queryPermission(opts)) === "granted") return true;
+  if((await handle.requestPermission(opts)) === "granted") return true;
+  return false;
+}
+async function handleToArrayBuffer(handle){
+  if(handle.getFile){ const f = await handle.getFile(); return await f.arrayBuffer(); }
+  // fallback: handle が File 自体
+  return await handle.arrayBuffer();
+}
+
+async function readAll(){
+  let any=false, anyErr=false;
+  for(const ent of config.entities){
+    ent._error = "";
+    if(!ent.handle){ ent._data=[]; continue; }
+    try{
+      const ok = await ensurePermission(ent.handle);
+      if(!ok){ ent._error="ファイルアクセスが許可されませんでした"; anyErr=true; continue; }
+      const buf = await handleToArrayBuffer(ent.handle);
+      const wb = XLSX.read(buf, {type:"array", cellDates:true});
+      ent.sheetNames = wb.SheetNames;
+      parseEntity(ent, wb);
+      if(ent._error) anyErr=true; else any=true;
+    }catch(e){
+      ent._error = "読込エラー: " + (e && e.message ? e.message : e);
+      anyErr=true;
+    }
+  }
+  // 設定UIのシート選択肢を更新
+  config.entities.forEach((e,i)=> populateSheetSelect(i));
+  renderSlicer();
+  renderActive();
+  setStatus(any ? (anyErr?"warn":"ok") : "warn",
+            any ? (anyErr?"一部読込":"読込完了") : "データなし");
+  document.getElementById("updatedAt").textContent = new Date().toLocaleString("ja-JP");
+  await persist();
+}
+
+/* ============================================================
+   描画
+   ============================================================ */
+function activeEntity(){ return config.entities.find(e=>e.id===config.activeId) || config.entities[0]; }
+function setStatus(kind,text){
+  const dot=document.getElementById("statusDot");
+  dot.className = "status-dot " + (kind||"");
+  document.getElementById("statusText").textContent = text;
+}
+function fmtPct(v){ return v==null ? "—" : (Math.round(v*10)/10).toLocaleString("ja-JP"); }
+function fmtNum(v){ return v==null ? "—" : Math.round(v).toLocaleString("ja-JP"); }
+
+function renderSlicer(){
+  const el=document.getElementById("slicer"); el.innerHTML="";
+  const anyReady = config.entities.some(e=>e._data && e._data.length>0);
+  const all=document.createElement("div");
+  all.className="chip"+(config.activeId===ALL_ID?" active":"")+(anyReady?"":" disabled");
+  all.textContent="全製品（比較）";
+  all.onclick=()=>{ config.activeId=ALL_ID; renderSlicer(); renderActive(); persist(); };
+  el.appendChild(all);
+  config.entities.forEach(ent=>{
+    const ready = ent._data && ent._data.length>0;
+    const c=document.createElement("div");
+    c.className="chip"+(ent.id===config.activeId?" active":"")+(ready?"":" disabled");
+    c.textContent=ent.name + (ready?"":" ·未読込");
+    c.onclick=()=>{ config.activeId=ent.id; renderSlicer(); renderActive(); persist(); };
+    el.appendChild(c);
+  });
+}
+
+function lastValid(data,key){
+  for(let i=data.length-1;i>=0;i--){ if(data[i][key]!=null) return {v:data[i][key], x:data[i].x, i}; }
+  return null;
+}
+function prevValid(data,key,beforeIdx){
+  for(let i=beforeIdx-1;i>=0;i--){ if(data[i][key]!=null) return data[i][key]; }
+  return null;
+}
+
+function getCards(){ return [...document.querySelectorAll(".kpis .card")]; }
+function setCardLab(i,txt){ const c=getCards()[i]; if(c) c.querySelector(".lab").textContent=txt; }
+function setCardEdge(i,color){ const c=getCards()[i]; if(c) c.querySelector(".accent-edge").style.background=color||""; }
+const ENT_COLORS=["#b4531a","#0f6e63","#2f5fa0"];
+
+function renderActive(){
+  const isAll = config.activeId===ALL_ID;
+  document.getElementById("metricToggle").style.display = isAll ? "inline-flex" : "none";
+  if(isAll) renderCompare(); else renderSingle();
+}
+
+function renderSingle(){
+  // 単体表示用にKPIラベル・エッジ・ヒントを既定へ戻す
+  ["目標値","ステータス","達成 (実績 − 目標)","出荷台数"].forEach((t,i)=>setCardLab(i,t));
+  [0,1,2,3].forEach(i=>setCardEdge(i,""));
+  document.getElementById("chartHint").textContent="折れ線＝％(左軸) ／ 棒＝台数(右軸)";
+  const ent=activeEntity();
+  document.getElementById("chartTitle").textContent = ent ? ent.name : "グラフ";
+  const data = (ent && ent._data) || [];
+  const empty=document.getElementById("chartEmpty");
+  const canvas=document.getElementById("chart");
+
+  // KPI
+  const lt=lastValid(data,"target"), ls=lastValid(data,"status"), lsh=lastValid(data,"shipment");
+  document.getElementById("kpiTarget").innerHTML = fmtPct(lt&&lt.v) + '<span class="u">%</span>';
+  document.getElementById("kpiStatus").innerHTML = fmtPct(ls&&ls.v) + '<span class="u">%</span>';
+  document.getElementById("kpiShip").innerHTML   = fmtNum(lsh&&lsh.v) + '<span class="u">台</span>';
+  document.getElementById("kpiTargetMeta").innerHTML = lt? ("最新 "+lt.x) : "&nbsp;";
+  document.getElementById("kpiStatusMeta").innerHTML = ls? ("最新 "+ls.x) : "&nbsp;";
+  // gap
+  let gapHtml="—", gapMeta="&nbsp;";
+  if(lt && ls){
+    const gap=ls.v-lt.v;
+    gapHtml = (gap>=0?"+":"") + (Math.round(gap*10)/10) + '<span class="u">pt</span>';
+    gapMeta = gap>=0 ? "<b>目標達成</b>" : '<b class="neg">目標未達</b>';
+  }
+  document.getElementById("kpiGap").innerHTML = gapHtml;
+  document.getElementById("kpiGapMeta").innerHTML = gapMeta;
+  // ship delta
+  let shMeta="&nbsp;";
+  if(lsh){ const p=prevValid(data,"shipment",lsh.i); if(p!=null){ const d=lsh.v-p; shMeta=(d>=0?'前週比 <b>+':'前週比 <b class="neg">')+Math.round(d)+"台</b>"; } else shMeta="最新 "+lsh.x; }
+  document.getElementById("kpiShipMeta").innerHTML = shMeta;
+
+  const fullLabels=data.map(d=>d.x);
+  renderXWindowControl(fullLabels);
+
+  // chart
+  if(!data.length){
+    empty.style.display="flex";
+    empty.textContent = ent && ent._error ? ("⚠ "+ent.name+": "+ent._error)
+      : "データ未読込です。下の「設定」でファイルとセル範囲を指定し、「更新」を押してください。";
+    canvas.style.display="none";
+    if(chart){ chart.destroy(); chart=null; }
+    return;
+  }
+  empty.style.display="none";
+  canvas.style.display="block";
+
+  const win=applyWindow(fullLabels);
+  const view=data.slice(win.s, win.e+1);
+  const labels=view.map(d=>d.x);
+  const ds=[
+    {type:"bar", label:"出荷台数(台)", data:view.map(d=>d.shipment), yAxisID:"y1",
+     backgroundColor:"rgba(180,83,26,.78)", borderRadius:3, order:3, barPercentage:.7, categoryPercentage:.8},
+    {type:"line", label:"目標値(%)", data:view.map(d=>d.target), yAxisID:"y",
+     borderColor:"#8a8475", borderWidth:1.6, borderDash:[6,4], pointRadius:0, tension:0, order:1},
+    {type:"line", label:"ステータス(%)", data:view.map(d=>d.status), yAxisID:"y",
+     borderColor:"#0f6e63", backgroundColor:"#0f6e63", borderWidth:2.4, pointRadius:2.5, pointHoverRadius:5, tension:.25, order:0},
+  ];
+
+  const cfg={
+    data:{labels, datasets:ds},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"index", intersect:false},
+      plugins:{
+        legend:{position:"top", labels:{usePointStyle:true, boxWidth:8, font:{family:"IBM Plex Sans JP", size:12}}},
+        tooltip:{callbacks:{label:(c)=>{
+          const u=c.dataset.yAxisID==="y1"?"台":"%";
+          const v=c.parsed.y; return " "+c.dataset.label+": "+(v==null?"—":v.toLocaleString("ja-JP"))+u;
+        }}}
+      },
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{family:"IBM Plex Mono", size:11}, maxRotation:0, autoSkip:true}},
+        y:{position:"left", min:config.axis.pctMin, max:config.axis.pctMax, title:{display:true, text:"％", font:{family:"IBM Plex Sans JP"}},
+           grid:{color:"rgba(0,0,0,.06)"}, ticks:{font:{family:"IBM Plex Mono", size:11}}},
+        y1:{position:"right", min:config.axis.unitMin, max:config.axis.unitMax, title:{display:true, text:"台", font:{family:"IBM Plex Sans JP"}},
+            grid:{display:false}, ticks:{font:{family:"IBM Plex Mono", size:11}}}
+      }
+    }
+  };
+  if(chart){ chart.destroy(); }
+  chart=new Chart(canvas.getContext("2d"), cfg);
+}
+
+/* ---- 全製品 比較ビュー ---- */
+function weekSortKey(label){
+  const m=/^W(\d)(\d{2})$/.exec(label);
+  return m ? (+m[1])*100 + (+m[2]) : Number.MAX_SAFE_INTEGER;
+}
+function unionWeeks(entities){
+  const seen=new Map();
+  entities.forEach(e=>(e._data||[]).forEach(d=>{ if(!seen.has(d.x)) seen.set(d.x, weekSortKey(d.x)); }));
+  return [...seen.keys()].sort((a,b)=> seen.get(a)-seen.get(b));
+}
+
+/* ---- 横軸（週）の表示区間 ---- */
+function orderedLabelsForActive(){
+  if(config.activeId===ALL_ID) return unionWeeks(config.entities);
+  const ent=activeEntity();
+  return (ent && ent._data) ? ent._data.map(d=>d.x) : [];
+}
+function applyWindow(fullLabels){
+  const n=fullLabels.length;
+  let s=0, e=n-1;
+  if(!config.xWindow.all && n>0){
+    const si=fullLabels.indexOf(config.xWindow.startLabel);
+    const ei=fullLabels.indexOf(config.xWindow.endLabel);
+    if(si>=0) s=si;
+    if(ei>=0) e=ei;
+    if(s>e){ const t=s; s=e; e=t; }
+  }
+  return {s, e};
+}
+function renderXWindowControl(fullLabels){
+  const wrap=document.getElementById("xwin");
+  const sEl=document.getElementById("xwinStart"), eEl=document.getElementById("xwinEnd");
+  const rng=document.getElementById("xwinRange");
+  const n=fullLabels.length;
+  if(n===0){ wrap.classList.add("disabled"); sEl.disabled=eEl.disabled=true; rng.textContent="—"; return; }
+  wrap.classList.remove("disabled"); sEl.disabled=eEl.disabled=false;
+  const {s,e}=applyWindow(fullLabels);
+  sEl.min=eEl.min=0; sEl.max=eEl.max=n-1;
+  sEl.value=s; eEl.value=e;
+  rng.textContent = fullLabels[s] + " 〜 " + fullLabels[e] + "（" + (e-s+1) + "週）";
+  document.querySelectorAll("#xwin .xwin-quick button").forEach(b=>{
+    const w=b.dataset.win; let on=false;
+    if(w==="all") on = config.xWindow.all || (s===0 && e===n-1);
+    else { const N=+w; on = !config.xWindow.all && s===Math.max(0,n-N) && e===n-1; }
+    b.classList.toggle("on", on);
+  });
+}
+function setXWindowFromSliders(){
+  const fullLabels=orderedLabelsForActive();
+  const n=fullLabels.length; if(!n) return;
+  let s=+document.getElementById("xwinStart").value;
+  let e=+document.getElementById("xwinEnd").value;
+  if(s>e){ const t=s; s=e; e=t; }
+  config.xWindow.all=false;
+  config.xWindow.startLabel=fullLabels[s];
+  config.xWindow.endLabel=fullLabels[e];
+  renderActive(); persist();
+}
+function setXWindowQuick(win){
+  const fullLabels=orderedLabelsForActive();
+  const n=fullLabels.length; if(!n) return;
+  if(win==="all"){ config.xWindow.all=true; config.xWindow.startLabel=null; config.xWindow.endLabel=null; }
+  else { const N=Math.min(+win, n); config.xWindow.all=false; config.xWindow.startLabel=fullLabels[n-N]; config.xWindow.endLabel=fullLabels[n-1]; }
+  renderActive(); persist();
+}
+function wireXWindow(){
+  const sEl=document.getElementById("xwinStart"), eEl=document.getElementById("xwinEnd");
+  if(sEl) sEl.addEventListener("input", setXWindowFromSliders);
+  if(eEl) eEl.addEventListener("input", setXWindowFromSliders);
+  document.querySelectorAll("#xwin .xwin-quick button").forEach(b=>{
+    b.addEventListener("click", ()=> setXWindowQuick(b.dataset.win));
+  });
+}
+
+function renderCompare(){
+  const en = config.compareMetrics;
+  document.querySelectorAll("#metricToggle button").forEach(b=>b.classList.toggle("on", !!en[b.dataset.metric]));
+  document.getElementById("chartTitle").textContent = "全製品比較";
+  const anyPct = en.target || en.status;
+  const anyUnit = en.shipment;
+  document.getElementById("chartHint").textContent =
+    [anyPct?"折れ線＝％(左軸)":"", anyUnit?"棒＝台数(右軸)":""].filter(Boolean).join(" ／ ") || "指標が選択されていません";
+
+  const ents = config.entities;
+  const withData = ents.filter(e=>e._data && e._data.length>0);
+  const fullLabels = unionWeeks(ents);
+  renderXWindowControl(fullLabels);
+  const win = applyWindow(fullLabels);
+  const labels = fullLabels.slice(win.s, win.e+1);
+
+  // KPI: 各製品の最新ステータス（目標・出荷を併記）+ 平均ステータス
+  const latStatus=[];
+  ents.forEach((e,i)=>{
+    const ls=lastValid(e._data||[],"status"), lt=lastValid(e._data||[],"target"), lsh=lastValid(e._data||[],"shipment");
+    latStatus[i]=ls?ls.v:null;
+    setCardLab(i, e.name);
+    setCardEdge(i, ENT_COLORS[i]);
+    const card=getCards()[i];
+    card.querySelector(".val").innerHTML = fmtPct(latStatus[i]) + '<span class="u">%</span>';
+    const parts=[];
+    if(lt) parts.push("目標 "+fmtPct(lt.v)+"%");
+    if(lsh) parts.push("出荷 "+fmtNum(lsh.v)+"台");
+    card.querySelector(".meta").innerHTML = parts.length ? parts.join(" ・ ") : "&nbsp;";
+  });
+  const vals=latStatus.filter(v=>v!=null);
+  const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  setCardLab(3,"平均ステータス"); setCardEdge(3,"#1d1b16");
+  getCards()[3].querySelector(".val").innerHTML = fmtPct(avg) + '<span class="u">%</span>';
+  getCards()[3].querySelector(".meta").innerHTML = vals.length ? (vals.length+"製品の平均") : "&nbsp;";
+
+  const empty=document.getElementById("chartEmpty");
+  const canvas=document.getElementById("chart");
+  if(!withData.length || !labels.length || (!anyPct && !anyUnit)){
+    empty.style.display="flex";
+    empty.textContent = (!anyPct && !anyUnit)
+      ? "表示する指標が選択されていません。上の指標トグルで選んでください。"
+      : "比較できるデータがありません。各製品のファイルと範囲を設定し『更新』を押してください。";
+    canvas.style.display="none";
+    if(chart){ chart.destroy(); chart=null; }
+    return;
+  }
+  empty.style.display="none"; canvas.style.display="block";
+
+  const datasets=[];
+  ents.forEach((e,i)=>{
+    if(!(e._data && e._data.length)) return;
+    const col=ENT_COLORS[i];
+    const maps={target:new Map(),status:new Map(),shipment:new Map()};
+    e._data.forEach(d=>{ maps.target.set(d.x,d.target); maps.status.set(d.x,d.status); maps.shipment.set(d.x,d.shipment); });
+    const series=key=>labels.map(l=> maps[key].has(l)?maps[key].get(l):null);
+    if(en.target){
+      datasets.push({type:"line", label:e.name+" 目標", data:series("target"), yAxisID:"y",
+        borderColor:col, borderWidth:1.4, borderDash:[5,4], pointRadius:0, tension:0, spanGaps:true, order:2});
+    }
+    if(en.status){
+      datasets.push({type:"line", label:e.name+" ステータス", data:series("status"), yAxisID:"y",
+        borderColor:col, backgroundColor:col, borderWidth:2.6, pointRadius:2, pointHoverRadius:5, tension:.25, spanGaps:true, order:1});
+    }
+    if(en.shipment){
+      datasets.push({type:"bar", label:e.name+" 出荷", data:series("shipment"), yAxisID:"y1",
+        backgroundColor:col+"88", borderColor:col+"88", borderRadius:2, barPercentage:.9, categoryPercentage:.78, order:3});
+    }
+  });
+
+  const cfg={
+    data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"index", intersect:false},
+      plugins:{
+        legend:{position:"top", labels:{usePointStyle:true, boxWidth:8, font:{family:"IBM Plex Sans JP", size:11}}},
+        tooltip:{callbacks:{label:(c)=>{ const u=c.dataset.yAxisID==="y1"?"台":"%"; const v=c.parsed.y; return " "+c.dataset.label+": "+(v==null?"—":v.toLocaleString("ja-JP"))+u; }}}
+      },
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{family:"IBM Plex Mono", size:11}, maxRotation:0, autoSkip:true}},
+        y:{position:"left", display:!!anyPct, min:config.axis.pctMin, max:config.axis.pctMax,
+           title:{display:true, text:"％", font:{family:"IBM Plex Sans JP"}},
+           grid:{color:"rgba(0,0,0,.06)"}, ticks:{font:{family:"IBM Plex Mono", size:11}}},
+        y1:{position:"right", display:!!anyUnit, min:config.axis.unitMin, max:config.axis.unitMax,
+            title:{display:true, text:"台", font:{family:"IBM Plex Sans JP"}},
+            grid:{display:false}, ticks:{font:{family:"IBM Plex Mono", size:11}}}
+      }
+    }
+  };
+  if(chart){ chart.destroy(); }
+  chart=new Chart(canvas.getContext("2d"), cfg);
+}
+
+/* ============================================================
+   設定UI
+   ============================================================ */
+function buildSettings(){
+  const grid=document.getElementById("entGrid"); grid.innerHTML="";
+  config.entities.forEach((ent,i)=>{
+    const el=document.createElement("div"); el.className="ent";
+    el.innerHTML=`
+      <h3><span class="num">${i+1}</span><input data-bind="name" data-i="${i}" value="${escapeAttr(ent.name)}" style="border:none;background:transparent;font-weight:600;font-size:13px;width:100%;padding:2px 0"></h3>
+      <div class="fld">
+        <label>ファイル</label>
+        <button class="filebtn" data-file="${i}"><span>📄 ファイルを選択</span><span class="fn" data-fn="${i}">${escapeHtml(ent.fileName||"未選択")}</span></button>
+        <input type="file" accept=".xlsx,.xlsm,.xls" data-fileinput="${i}" hidden>
+      </div>
+      <div class="fld">
+        <label>シート名</label>
+        <select data-bind="sheet" data-i="${i}"></select>
+      </div>
+      <div class="two">
+        <div class="fld">
+          <label>X軸タイプ</label>
+          <select data-bind="x.type" data-i="${i}">
+            <option value="date"${ent.x.type==="date"?" selected":""}>日付</option>
+            <option value="weeklabel"${ent.x.type==="weeklabel"?" selected":""}>週ラベル(W601)</option>
+          </select>
+        </div>
+        <div class="fld">
+          <label>X軸範囲（週）</label>
+          <input class="mono" data-bind="x.range" data-i="${i}" placeholder="例 B2:B53" value="${escapeAttr(ent.x.range)}">
+        </div>
+      </div>
+      <div class="fld"><label>目標値の範囲（％）</label><input class="mono" data-bind="target.range" data-i="${i}" placeholder="例 C2:C53" value="${escapeAttr(ent.target.range)}"></div>
+      <div class="fld"><label>ステータスの範囲（％）</label><input class="mono" data-bind="status.range" data-i="${i}" placeholder="例 D2:D53" value="${escapeAttr(ent.status.range)}"></div>
+      <div class="fld"><label>出荷台数の範囲（台）</label><input class="mono" data-bind="shipment.range" data-i="${i}" placeholder="例 E2:E53" value="${escapeAttr(ent.shipment.range)}"></div>
+    `;
+    grid.appendChild(el);
+    populateSheetSelect(i, el);
+  });
+
+  // bind text/select changes
+  grid.querySelectorAll("[data-bind]").forEach(node=>{
+    const ev = node.tagName==="SELECT" ? "change" : "input";
+    node.addEventListener(ev, ()=>{
+      const i=+node.dataset.i; const path=node.dataset.bind;
+      setPath(config.entities[i], path, node.value);
+      if(path==="name") renderSlicer();
+      persist();
+    });
+  });
+  // file pick buttons
+  grid.querySelectorAll("[data-file]").forEach(btn=>{
+    btn.addEventListener("click", ()=> pickFile(+btn.dataset.file));
+  });
+  // fallback file inputs
+  grid.querySelectorAll("[data-fileinput]").forEach(inp=>{
+    inp.addEventListener("change", (e)=> useFallbackFile(+inp.dataset.fileinput, e.target.files[0]));
+  });
+}
+
+function populateSheetSelect(i, scope){
+  const root = scope || document;
+  const sel = root.querySelector(`select[data-bind="sheet"][data-i="${i}"]`);
+  if(!sel) return;
+  const ent=config.entities[i];
+  const names = ent.sheetNames && ent.sheetNames.length ? ent.sheetNames : (ent.sheet?[ent.sheet]:[]);
+  sel.innerHTML = "";
+  if(!names.length){ const o=document.createElement("option"); o.value=""; o.textContent="（ファイル読込後に選択）"; sel.appendChild(o); sel.disabled=true; return; }
+  sel.disabled=false;
+  names.forEach(nm=>{ const o=document.createElement("option"); o.value=nm; o.textContent=nm; if(nm===ent.sheet)o.selected=true; sel.appendChild(o); });
+  if(!ent.sheet){ ent.sheet=names[0]; sel.value=names[0]; }
+}
+
+async function pickFile(i){
+  const ent=config.entities[i];
+  if(hasFSA){
+    try{
+      const [handle] = await window.showOpenFilePicker({
+        types:[{description:"Excel", accept:{"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx",".xlsm"], "application/vnd.ms-excel":[".xls"]}}]
+      });
+      ent.handle=handle; ent.fileName=handle.name; ent.sheet=""; ent.sheetNames=[];
+      // 即読込してシート一覧取得
+      const buf=await handleToArrayBuffer(handle);
+      const wb=XLSX.read(buf,{type:"array",cellDates:true});
+      ent.sheetNames=wb.SheetNames;
+      document.querySelector(`[data-fn="${i}"]`).textContent=ent.fileName;
+      populateSheetSelect(i);
+      await persist();
+      setMsg("ok","「"+ent.name+"」にファイルを設定しました。範囲を指定し『更新』を押してください。");
+    }catch(e){
+      if(e && e.name==="AbortError") return;
+      // サンドボックス等で失敗 → フォールバック
+      document.querySelector(`[data-fileinput="${i}"]`).click();
+    }
+  }else{
+    document.querySelector(`[data-fileinput="${i}"]`).click();
+  }
+}
+
+async function useFallbackFile(i, file){
+  if(!file) return;
+  const ent=config.entities[i];
+  ent.handle=file;            // File オブジェクトをそのまま保持（このセッションのみ）
+  ent.fileName=file.name; ent.sheet=""; ent.sheetNames=[];
+  const buf=await file.arrayBuffer();
+  const wb=XLSX.read(buf,{type:"array",cellDates:true});
+  ent.sheetNames=wb.SheetNames;
+  document.querySelector(`[data-fn="${i}"]`).textContent=ent.fileName;
+  populateSheetSelect(i);
+  setMsg("ok","ファイルを設定しました（フォールバックモード：再読込時は再選択が必要です）。");
+}
+
+/* ============================================================
+   設定 JSON 入出力（ハンドルは含めない）
+   ============================================================ */
+function exportConfig(){
+  const out={
+    version:1,
+    weekRule:{weekStart:"sunday", firstWeekContainsJan1:true, yearDigits:1},
+    axis:config.axis,
+    compareMetrics:config.compareMetrics,
+    xWindow:config.xWindow,
+    entities:config.entities.map(e=>({
+      name:e.name, sheet:e.sheet,
+      x:{type:e.x.type, range:e.x.range},
+      target:{range:e.target.range}, status:{range:e.status.range}, shipment:{range:e.shipment.range}
+    }))
+  };
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="kpi-dashboard-config.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setMsg("ok","設定をエクスポートしました（ファイル本体は含まれません）。");
+}
+function importConfig(file){
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const o=JSON.parse(rd.result);
+      (o.entities||[]).forEach((s,i)=>{
+        if(!config.entities[i]) return;
+        const e=config.entities[i];
+        if(s.name) e.name=s.name;
+        if(s.sheet) e.sheet=s.sheet;
+        e.x={type:s.x?.type||"date", range:s.x?.range||""};
+        e.target={range:s.target?.range||""};
+        e.status={range:s.status?.range||""};
+        e.shipment={range:s.shipment?.range||""};
+      });
+      buildSettings(); renderSlicer();
+      persist();
+      setMsg("ok","設定を読み込みました。各エンティティのファイルを選び直してください。");
+    }catch(e){ setMsg("err","JSONの読み込みに失敗しました: "+e.message); }
+  };
+  rd.readAsText(file);
+}
+
+/* ============================================================
+   小物
+   ============================================================ */
+function setPath(obj,path,val){ const p=path.split("."); let o=obj; for(let i=0;i<p.length-1;i++)o=o[p[i]]; o[p[p.length-1]]=val; }
+function escapeHtml(s){ return String(s).replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m])); }
+function escapeAttr(s){ return String(s).replace(/"/g,"&quot;"); }
+function setMsg(kind,text){ const m=document.getElementById("msg"); m.className="msg "+(kind||""); m.textContent=text; }
+
+function setAxisInputs(){
+  [["axPctMin","pctMin"],["axPctMax","pctMax"],["axUnitMin","unitMin"],["axUnitMax","unitMax"]].forEach(([id,key])=>{
+    const el=document.getElementById(id); if(el) el.value=config.axis[key];
+  });
+}
+function wireAxisInputs(){
+  setAxisInputs();
+  [["axPctMin","pctMin"],["axPctMax","pctMax"],["axUnitMin","unitMin"],["axUnitMax","unitMax"]].forEach(([id,key])=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener("change", ()=>{
+      const v=parseFloat(el.value);
+      if(!isNaN(v)){ config.axis[key]=v; renderActive(); persist(); }
+    });
+  });
+}
+
+/* ============================================================
+   デモ用サンプルデータ生成
+   ============================================================ */
+function weekLabels(n, yearDigit, startWeek){
+  const a=[]; let y=yearDigit, w=startWeek;
+  for(let i=0;i<n;i++){ a.push("W"+y+String(w).padStart(2,"0")); w++; if(w>52){ w=1; y=(y+1)%10; } }
+  return a;
+}
+function makeSeries(n, base, amp, trend, noise, round){
+  const a=[];
+  for(let i=0;i<n;i++){
+    let v = base + trend*i + amp*Math.sin(i/3) + (Math.random()*2-1)*noise;
+    a.push(round ? Math.round(v) : Math.round(v*10)/10);
+  }
+  return a;
+}
+function loadDemo(){
+  const N=24;
+  const labels = weekLabels(N, 6, 1); // W601 〜 W624（2026年 第1〜24週）
+  const specs=[
+    {name:"製品A", t:95, sB:88, sT:0.40, sA:1.6, shB:78,  shT:1.2, shA:14, shN:9},
+    {name:"製品B", t:90, sB:91, sT:-0.10, sA:3.0, shB:48,  shT:0.3, shA:11, shN:8},
+    {name:"製品C", t:97, sB:93, sT:0.22, sA:1.2, shB:112, shT:0.8, shA:13, shN:9},
+  ];
+  config.entities.forEach((e,i)=>{
+    const s=specs[i];
+    e.name=s.name;
+    e.fileName="サンプル_"+s.name+".xlsx";
+    e.sheetNames=["実績データ"]; e.sheet="実績データ";
+    e.x={type:"weeklabel", range:"A2:A25"};
+    e.target={range:"B2:B25"}; e.status={range:"C2:C25"}; e.shipment={range:"D2:D25"};
+    const status = makeSeries(N, s.sB, s.sA, s.sT, 1.0, false).map(v=>Math.min(100, Math.max(60, v)));
+    const ship   = makeSeries(N, s.shB, s.shA, s.shT, s.shN, true).map(v=>Math.min(148, Math.max(0, v)));
+    e._data = labels.map((l,k)=>({x:l, target:s.t, status:status[k], shipment:ship[k]}));
+    e._error="";
+  });
+  config.activeId="ent1";
+  buildSettings();
+  renderSlicer();
+  renderActive();
+  setStatus("ok","デモ表示");
+  document.getElementById("updatedAt").textContent = new Date().toLocaleString("ja-JP");
+}
+
+/* ============================================================
+   初期化（デモ版：開いた瞬間にサンプルを表示）
+   ============================================================ */
+async function init(){
+  const b=document.getElementById("capBanner");
+  b.classList.add("show");
+  b.innerHTML="🧪 <b>デモ表示</b>：ランダム生成したサンプルデータ（製品A／B／C × 24週）を読み込んだ状態です。" +
+              "グラフ上の「表示区間」スライダーや、設定パネルの「軸スケール」「💾 設定を保存」も試せます。実運用版は <b>kpi-dashboard.html</b> です。";
+  loadDemo();
+  document.getElementById("reloadBtn").addEventListener("click", loadDemo);
+  document.getElementById("reloadBtn2").addEventListener("click", loadDemo);
+  document.getElementById("exportBtn").addEventListener("click", exportConfig);
+  document.getElementById("importBtn").addEventListener("click", ()=>document.getElementById("importFile").click());
+  document.getElementById("importFile").addEventListener("change", e=>{ if(e.target.files[0]) importConfig(e.target.files[0]); });
+  document.querySelectorAll("#metricToggle button").forEach(b=>{
+    b.addEventListener("click", ()=>{ const k=b.dataset.metric; config.compareMetrics[k]=!config.compareMetrics[k]; renderActive(); persist(); });
+  });
+  document.getElementById("saveBtn").addEventListener("click", async ()=>{
+    await persist();
+    setMsg("ok","設定を保存しました（デモ版はサンプルのため次回も自動再生成されます）。");
+  });
+  wireXWindow();
+  wireAxisInputs();
+}
+
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
