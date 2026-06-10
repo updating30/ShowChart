@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案件管理システム</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2129;
+    --panel-2: #222b35;
+    --line: #2e3a47;
+    --txt: #e8edf2;
+    --muted: #8a99a8;
+    --accent: #4ea8de;
+    --accent-d: #3a87b8;
+    --ok: #5dc98e;
+    --warn: #e0a64a;
+    --danger: #e06666;
+    --hot: #e06666;
+    --warm: #e0a64a;
+    --cool: #4ea8de;
+    --radius: 10px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--txt);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    background: linear-gradient(135deg, #1a2129, #131a21);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  header h1 {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  header h1 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .tabs { display: flex; gap: 4px; background: var(--panel-2); padding: 4px; border-radius: var(--radius); }
+  .tab {
+    padding: 8px 18px; border: none; background: transparent; color: var(--muted);
+    border-radius: 7px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .15s;
+    font-family: inherit;
+  }
+  .tab.active { background: var(--accent); color: #fff; }
+  .tab:hover:not(.active) { color: var(--txt); }
+  main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Alert banner */
+  .alert-bar {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .alert-card {
+    flex: 1; min-width: 160px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px 18px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .alert-card .n { font-size: 26px; font-weight: 700; }
+  .alert-card .l { font-size: 12px; color: var(--muted); }
+  .alert-card.danger { border-color: var(--danger); }
+  .alert-card.danger .n { color: var(--danger); }
+  .alert-card.warn { border-color: var(--warn); }
+  .alert-card.warn .n { color: var(--warn); }
+  .alert-card.ok .n { color: var(--ok); }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .btn {
+    padding: 9px 18px; border: 1px solid var(--line); background: var(--panel-2); color: var(--txt);
+    border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .15s;
+    font-family: inherit; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-d); }
+  .btn.ghost { background: transparent; }
+  .search { flex: 1; min-width: 200px; }
+  .search input, select.filter {
+    width: 100%; padding: 9px 14px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; color: var(--txt); font-size: 14px; font-family: inherit;
+  }
+  select.filter { width: auto; cursor: pointer; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+
+  /* Table */
+  .table-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: auto; box-shadow: var(--shadow); }
+  table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+  th, td { padding: 12px 14px; text-align: left; font-size: 13px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { background: var(--panel-2); color: var(--muted); font-weight: 600; position: sticky; top: 0; cursor: pointer; user-select: none; }
+  th:hover { color: var(--txt); }
+  tbody tr { transition: background .12s; cursor: pointer; }
+  tbody tr:hover { background: var(--panel-2); }
+  td.name { font-weight: 600; color: var(--txt); white-space: normal; min-width: 160px; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .temp-hot { background: rgba(224,102,102,.18); color: var(--hot); }
+  .temp-warm { background: rgba(224,166,74,.18); color: var(--warm); }
+  .temp-cool { background: rgba(78,168,222,.18); color: var(--cool); }
+  .status-pill { display:inline-flex; align-items:center; gap:5px; font-size:12px; }
+  .status-pill::before { content:''; width:8px; height:8px; border-radius:50%; background: var(--muted); }
+  .st-new::before { background: var(--accent); }
+  .st-progress::before { background: var(--warn); }
+  .st-done::before { background: var(--ok); }
+  .flag { color: var(--danger); font-weight: 700; }
+  .miss { color: var(--danger); }
+  .filled { color: var(--ok); }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+
+  /* Sync bar */
+  .sync-bar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px 18px; margin-bottom: 16px;
+  }
+  .sync-bar.dirty { border-color: var(--warn); background: rgba(224,166,74,.08); }
+  .sync-bar .si { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+  .sync-bar .si .label { color: var(--muted); }
+  .sync-bar .si .val { font-weight: 600; }
+  .sync-bar .si .val.warn { color: var(--warn); }
+  .sync-bar .si .val.ok { color: var(--ok); }
+  .sync-bar .grow { flex: 1; }
+
+  /* Startup prompt */
+  .startup {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    background: linear-gradient(135deg, rgba(78,168,222,.16), rgba(78,168,222,.06));
+    border: 1px solid var(--accent); border-radius: var(--radius);
+    padding: 16px 20px; margin-bottom: 16px;
+  }
+  .startup .ico { font-size: 26px; }
+  .startup .msg { flex: 1; min-width: 220px; }
+  .startup .msg .t { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+  .startup .msg .d { font-size: 13px; color: var(--muted); }
+  .startup .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* Modal */
+  .overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100;
+    align-items: flex-start; justify-content: center; padding: 30px 16px; overflow-y: auto;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: 100%;
+    max-width: 720px; box-shadow: var(--shadow); animation: pop .18s ease;
+  }
+  @keyframes pop { from { transform: translateY(12px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal-head { padding: 18px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+  .modal-head h2 { font-size: 17px; }
+  .modal-head .x { background: none; border: none; color: var(--muted); font-size: 24px; cursor: pointer; line-height: 1; }
+  .modal-body { padding: 24px; }
+  .section-label { font-size: 12px; color: var(--accent); font-weight: 700; letter-spacing: 1px; margin: 20px 0 10px; text-transform: uppercase; }
+  .section-label:first-child { margin-top: 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .field label .req { color: var(--danger); }
+  .field input, .field select, .field textarea {
+    padding: 9px 12px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; color: var(--txt); font-size: 14px; font-family: inherit;
+  }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .modal-foot { padding: 16px 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; }
+  .modal-foot .right { display: flex; gap: 10px; }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--ok); color: #06210f; padding: 12px 24px; border-radius: 10px; font-weight: 700;
+    z-index: 200; transition: transform .3s; box-shadow: var(--shadow);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.err { background: var(--danger); color: #fff; }
+  @media (max-width: 600px){ .grid { grid-template-columns: 1fr; } header h1 { font-size: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot"></span>案件管理システム</h1>
+  <div class="tabs">
+    <button class="tab active" data-view="list">案件一覧</button>
+    <button class="tab" data-view="dashboard">ダッシュボード</button>
+  </div>
+</header>
+
+<main>
+  <!-- LIST VIEW -->
+  <section class="view active" id="view-list">
+    <div id="startupPrompt"></div>
+    <div id="syncBar"></div>
+    <div class="alert-bar" id="alertBar"></div>
+    <div class="toolbar">
+      <button class="btn primary" onclick="openModal()">＋ 新規案件を登録</button>
+      <div class="search"><input type="text" id="searchBox" placeholder="案件名・要求元で検索..." oninput="render()"></div>
+      <select class="filter" id="filterStatus" onchange="render()">
+        <option value="">すべての状況</option>
+        <option value="new">新規</option>
+        <option value="progress">対応中</option>
+        <option value="done">完了</option>
+      </select>
+      <select class="filter" id="filterAlert" onchange="render()">
+        <option value="">すべて</option>
+        <option value="alert">要対応のみ</option>
+      </select>
+      <button class="btn ghost" onclick="exportCSV()">CSV出力</button>
+      <button class="btn ghost" onclick="document.getElementById('importCsv').click()">CSV読込</button>
+      <input type="file" id="importCsv" accept=".csv" style="display:none" onchange="importCSV(event)">
+      <button class="btn ghost" onclick="document.getElementById('importXlsx').click()">Excel初回取込</button>
+      <input type="file" id="importXlsx" accept=".xlsx,.xls" style="display:none" onchange="importXLSX(event)">
+    </div>
+    <div class="table-wrap">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th onclick="sortBy('ankenId')">案件ID</th>
+            <th onclick="sortBy('name')">案件名</th>
+            <th onclick="sortBy('requester')">要求元</th>
+            <th onclick="sortBy('temp')">現場温度</th>
+            <th onclick="sortBy('deadline')">希望納期</th>
+            <th onclick="sortBy('status')">状況</th>
+            <th>見積り有効期限</th>
+            <th>出荷日程</th>
+            <th>調整漏れ</th>
+            <th>記録</th>
+            <th onclick="sortBy('updated')">更新</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- DASHBOARD VIEW -->
+  <section class="view" id="view-dashboard">
+    <div class="alert-bar" id="dashStats"></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr; gap:24px; margin-top:8px;">
+      <div class="table-wrap" style="padding:20px;">
+        <h3 style="font-size:15px;margin-bottom:14px;">状況別の件数</h3>
+        <div id="byStatus"></div>
+      </div>
+      <div class="table-wrap" style="padding:20px;">
+        <h3 style="font-size:15px;margin-bottom:14px;">現場温度の分布</h3>
+        <div id="byTemp"></div>
+      </div>
+    </div>
+    <div class="table-wrap" style="padding:20px;margin-top:24px;">
+      <h3 style="font-size:15px;margin-bottom:14px;color:var(--danger);">⚠ 要対応の案件（調整漏れ・期限切れ）</h3>
+      <div id="dashAlerts"></div>
+    </div>
+  </section>
+</main>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">新規案件を登録</h2>
+      <button class="x" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="f_id">
+      <div class="section-label">基本情報（登録時に入力）</div>
+      <div class="grid">
+        <div class="field full">
+          <label>案件ID</label>
+          <input type="text" id="f_ankenId" readonly placeholder="保存時に自動採番されます" style="color:var(--accent);font-weight:700;">
+          <div class="hint">新規保存時に「A-年-連番」で自動採番されます（変更不可）</div>
+        </div>
+        <div class="field full">
+          <label>案件名 <span class="req">*</span></label>
+          <input type="text" id="f_name" placeholder="例：○○装置の検査機能追加">
+        </div>
+        <div class="field">
+          <label>要求元 <span class="req">*</span></label>
+          <input type="text" id="f_requester" placeholder="例：A社 / 製造部">
+        </div>
+        <div class="field">
+          <label>現場温度</label>
+          <select id="f_temp">
+            <option value="cool">低（様子見）</option>
+            <option value="warm" selected>中（前向き）</option>
+            <option value="hot">高（急ぎ・強い要望）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>希望納期</label>
+          <input type="date" id="f_deadline">
+        </div>
+        <div class="field">
+          <label>状況</label>
+          <select id="f_status">
+            <option value="new">新規</option>
+            <option value="progress">対応中</option>
+            <option value="done">完了</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label>備考</label>
+          <textarea id="f_note" placeholder="補足メモ..."></textarea>
+        </div>
+      </div>
+
+      <div class="section-label">進捗・調整項目（決まり次第入力）</div>
+      <div class="grid">
+        <div class="field">
+          <label>工場ミーティング</label>
+          <select id="f_factoryMtg">
+            <option value="">未実施</option>
+            <option value="scheduled">予定あり</option>
+            <option value="done">実施済み</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>工数（h）</label>
+          <input type="number" id="f_estimate" min="0" step="0.5" placeholder="例：120">
+        </div>
+        <div class="field">
+          <label>見積り有効期限</label>
+          <input type="date" id="f_estimateExpiry">
+        </div>
+        <div class="field">
+          <label>顧客報告</label>
+          <select id="f_customerReport">
+            <option value="">未報告</option>
+            <option value="reported">報告済み</option>
+            <option value="approved">承認取得</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>対応バージョン</label>
+          <input type="text" id="f_version" placeholder="例：Ver.3.2">
+        </div>
+        <div class="field">
+          <label>開発インプット番号</label>
+          <input type="text" id="f_inputNo" placeholder="例：DEV-2026-014">
+        </div>
+        <div class="field">
+          <label>初回対応装置</label>
+          <input type="text" id="f_device" placeholder="例：号機/型式">
+        </div>
+        <div class="field">
+          <label>出荷日程</label>
+          <input type="date" id="f_shipDate">
+        </div>
+      </div>
+
+      <div class="section-label">記録ノート（SharePoint上のOneNoteと連携）</div>
+      <div class="grid">
+        <div class="field full">
+          <label>OneNoteページのリンク</label>
+          <input type="text" id="f_noteLink" placeholder="OneNoteでページ右クリック→「ページへのリンクをコピー」で貼り付け">
+          <div class="hint">議事・検討・資料はこのOneNoteページに記録します。貼っておくと一覧から📓ボタンでワンクリックで開けます。</div>
+        </div>
+      </div>
+
+      <div class="section-label">メール送信先（工場への下書き生成に使用）</div>
+      <div class="grid">
+        <div class="field">
+          <label>宛先（To）</label>
+          <input type="text" id="f_mailTo" placeholder="例：factory@example.com">
+        </div>
+        <div class="field">
+          <label>CC</label>
+          <input type="text" id="f_mailCc" placeholder="例：manager@example.com（任意）">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="delBtn" onclick="deleteItem()" style="color:var(--danger);display:none;">削除</button>
+      <div class="right">
+        <button class="btn ghost" id="mailBtn" onclick="genMail()" style="display:none;">📧 メール下書きを作成</button>
+        <button class="btn ghost" onclick="closeModal()">キャンセル</button>
+        <button class="btn primary" onclick="saveItem()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const STORE_KEY = 'anken_data_v1';
+const META_KEY = 'anken_meta_v1';
+let DATA = [];
+let sortKey = 'updated', sortAsc = false;
+let DIRTY = false;            // Box未保存（CSV未出力）の変更があるか
+let LAST_LOADED = null;       // 最後にCSV読込した時刻・件数の情報
+
+const TEMP_LABEL = { hot:'高', warm:'中', cool:'低' };
+const TEMP_CLASS = { hot:'temp-hot', warm:'temp-warm', cool:'temp-cool' };
+const STATUS_LABEL = { new:'新規', progress:'対応中', done:'完了' };
+const STATUS_CLASS = { new:'st-new', progress:'st-progress', done:'st-done' };
+
+// ---- Persistence（ブラウザ内の自動保存。Boxへの保存はCSV出力で行う） ----
+async function load(){
+  try {
+    const r = await window.storage.get(STORE_KEY);
+    DATA = r ? JSON.parse(r.value) : [];
+  } catch(e){ DATA = []; }
+  try {
+    const m = await window.storage.get(META_KEY);
+    if(m){ const meta = JSON.parse(m.value); DIRTY = !!meta.dirty; LAST_LOADED = meta.lastLoaded||null; }
+  } catch(e){}
+  render(); renderSyncBar(); renderStartupPrompt();
+}
+// 起動時に「最新CSVの読込」を促すバナー。今日まだ読み込んでいなければ表示。
+let promptDismissed = false;
+function renderStartupPrompt(){
+  const el = document.getElementById('startupPrompt');
+  if(!el) return;
+  const loadedToday = LAST_LOADED && LAST_LOADED.time && LAST_LOADED.time.startsWith(nowStamp(true).slice(0,10));
+  if(promptDismissed || loadedToday){ el.innerHTML=''; return; }
+  const lastTxt = LAST_LOADED ? `前回の読込: ${LAST_LOADED.time}（${LAST_LOADED.count}件）` : 'まだ一度も共有CSVを読み込んでいません';
+  el.innerHTML = `
+    <div class="startup">
+      <div class="ico">📥</div>
+      <div class="msg">
+        <div class="t">作業を始める前に、Boxの最新CSVを読み込みましょう</div>
+        <div class="d">${lastTxt}。表示中は前回このPCで保存した内容です。最新の共有データを取り込んでから編集してください。</div>
+      </div>
+      <div class="acts">
+        <button class="btn primary" onclick="document.getElementById('importCsv').click()">📥 最新CSVを読み込む</button>
+        <button class="btn ghost" onclick="dismissStartup()">前回の続きで作業する</button>
+      </div>
+    </div>`;
+}
+function dismissStartup(){ promptDismissed = true; renderStartupPrompt(); }
+async function persist(markDirty){
+  if(markDirty !== false) DIRTY = true;
+  try {
+    await window.storage.set(STORE_KEY, JSON.stringify(DATA));
+    await window.storage.set(META_KEY, JSON.stringify({dirty:DIRTY, lastLoaded:LAST_LOADED}));
+  }
+  catch(e){ toast('保存に失敗しました', true); }
+  renderSyncBar();
+}
+
+// ---- Alert logic ----
+function daysUntil(d){
+  if(!d) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return Math.round((new Date(d) - today) / 86400000);
+}
+// returns array of missing/overdue messages for an item
+function getAlerts(it){
+  const a = [];
+  if(it.status === 'done') return a;
+  // missing required adjustments after progress
+  if(it.status === 'progress'){
+    if(!it.factoryMtg) a.push('工場MTG未設定');
+    if(!it.estimate) a.push('見積り未入力');
+    if(!it.customerReport) a.push('顧客報告未実施');
+  }
+  // expiry / deadline checks
+  const ed = daysUntil(it.estimateExpiry);
+  if(ed !== null && ed < 0) a.push('見積り期限切れ');
+  else if(ed !== null && ed <= 7) a.push('見積り期限間近');
+  const dl = daysUntil(it.deadline);
+  if(dl !== null && dl < 0) a.push('希望納期超過');
+  else if(dl !== null && dl <= 14) a.push('納期間近');
+  return a;
+}
+
+// ---- Render ----
+function render(){
+  const q = (document.getElementById('searchBox').value||'').toLowerCase();
+  const fs = document.getElementById('filterStatus').value;
+  const fa = document.getElementById('filterAlert').value;
+  let rows = DATA.filter(it=>{
+    if(q && !((it.name||'').toLowerCase().includes(q) || (it.requester||'').toLowerCase().includes(q))) return false;
+    if(fs && it.status !== fs) return false;
+    if(fa === 'alert' && getAlerts(it).length === 0) return false;
+    return true;
+  });
+  rows.sort((a,b)=>{
+    let x=a[sortKey]||'', y=b[sortKey]||'';
+    if(sortKey==='temp'){ const o={hot:3,warm:2,cool:1}; x=o[a.temp]||0; y=o[b.temp]||0; }
+    if(sortKey==='status'){ const o={new:1,progress:2,done:3}; x=o[a.status]||0; y=o[b.status]||0; }
+    if(x<y) return sortAsc?-1:1; if(x>y) return sortAsc?1:-1; return 0;
+  });
+
+  const tb = document.getElementById('tbody');
+  if(rows.length === 0){
+    tb.innerHTML = '<tr><td colspan="11"><div class="empty">該当する案件がありません。「＋ 新規案件を登録」から追加してください。</div></td></tr>';
+  } else {
+    tb.innerHTML = rows.map(it=>{
+      const al = getAlerts(it);
+      const alHtml = al.length ? `<span class="flag">⚠ ${al.join(' / ')}</span>` : '<span class="filled">—</span>';
+      return `<tr onclick="openModal('${it.id}')">
+        <td style="font-family:monospace;color:var(--accent);font-weight:700">${esc(it.ankenId||'—')}</td>
+        <td class="name">${esc(it.name)}</td>
+        <td>${esc(it.requester)}</td>
+        <td><span class="badge ${TEMP_CLASS[it.temp]}">${TEMP_LABEL[it.temp]}</span></td>
+        <td>${fmtDate(it.deadline)}</td>
+        <td><span class="status-pill ${STATUS_CLASS[it.status]}">${STATUS_LABEL[it.status]}</span></td>
+        <td>${fmtDate(it.estimateExpiry)}</td>
+        <td>${fmtDate(it.shipDate)}</td>
+        <td>${alHtml}</td>
+        <td>${it.noteLink ? `<a href="${esc(it.noteLink)}" target="_blank" onclick="event.stopPropagation()" title="記録ノートを開く" style="text-decoration:none;font-size:16px">📓</a>` : '<span style="color:var(--line)">📓</span>'}</td>
+        <td style="color:var(--muted)">${fmtDate(it.updated)}</td>
+      </tr>`;
+    }).join('');
+  }
+  renderAlertBar();
+  renderSyncBar();
+  renderDashboard();
+}
+
+function renderSyncBar(){
+  const el = document.getElementById('syncBar');
+  if(!el) return;
+  const loadedTxt = LAST_LOADED
+    ? `${LAST_LOADED.time}（${LAST_LOADED.count}件）`
+    : '未読込（このブラウザのデータを表示中）';
+  el.className = 'sync-bar' + (DIRTY ? ' dirty' : '');
+  el.innerHTML = `
+    <div class="si"><span class="label">Boxの保存状態:</span>
+      <span class="val ${DIRTY?'warn':'ok'}">${DIRTY ? '⚠ 未保存の変更あり' : '✓ 保存済み'}</span></div>
+    <div class="si"><span class="label">最後にCSV読込:</span><span class="val">${loadedTxt}</span></div>
+    <div class="grow"></div>
+    ${DIRTY ? '<button class="btn primary" onclick="exportCSV()">💾 BoxへCSV保存</button>' : ''}`;
+}
+
+function renderAlertBar(){
+  const active = DATA.filter(it=>it.status!=='done');
+  const alertCount = active.filter(it=>getAlerts(it).length>0).length;
+  const overdue = active.filter(it=>{const d=daysUntil(it.deadline); return d!==null&&d<0;}).length;
+  const done = DATA.filter(it=>it.status==='done').length;
+  document.getElementById('alertBar').innerHTML = `
+    <div class="alert-card"><span class="n">${DATA.length}</span><span class="l">全案件</span></div>
+    <div class="alert-card ${alertCount?'danger':'ok'}"><span class="n">${alertCount}</span><span class="l">要対応（調整漏れ等）</span></div>
+    <div class="alert-card ${overdue?'warn':'ok'}"><span class="n">${overdue}</span><span class="l">納期超過</span></div>
+    <div class="alert-card ok"><span class="n">${done}</span><span class="l">完了</span></div>`;
+}
+
+function renderDashboard(){
+  const total = DATA.length || 1;
+  const sc = {new:0,progress:0,done:0}; DATA.forEach(it=>sc[it.status]++);
+  document.getElementById('byStatus').innerHTML = Object.keys(sc).map(k=>bar(STATUS_LABEL[k], sc[k], total)).join('');
+  const tc = {hot:0,warm:0,cool:0}; DATA.forEach(it=>tc[it.temp]++);
+  document.getElementById('byTemp').innerHTML = Object.keys(tc).map(k=>bar('温度 '+TEMP_LABEL[k], tc[k], total)).join('');
+
+  const stats = document.getElementById('dashStats');
+  const active = DATA.filter(it=>it.status!=='done');
+  const alertItems = active.filter(it=>getAlerts(it).length>0);
+  stats.innerHTML = `
+    <div class="alert-card"><span class="n">${active.length}</span><span class="l">進行中の案件</span></div>
+    <div class="alert-card ${alertItems.length?'danger':'ok'}"><span class="n">${alertItems.length}</span><span class="l">要対応</span></div>
+    <div class="alert-card"><span class="n">${DATA.filter(it=>it.temp==='hot').length}</span><span class="l">温度「高」</span></div>`;
+
+  document.getElementById('dashAlerts').innerHTML = alertItems.length
+    ? alertItems.map(it=>`<div style="padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;display:flex;justify-content:space-between;gap:12px" onclick="switchView('list');openModal('${it.id}')">
+        <span><b>${esc(it.name)}</b> <span style="color:var(--muted)">/ ${esc(it.requester)}</span></span>
+        <span class="flag">⚠ ${getAlerts(it).join(' / ')}</span></div>`).join('')
+    : '<div style="color:var(--ok)">現在、調整漏れ・期限切れの案件はありません。</div>';
+}
+
+function bar(label, n, total){
+  const pct = Math.round(n/total*100);
+  return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${label}</span><span style="color:var(--muted)">${n}件</span></div>
+    <div style="background:var(--panel-2);border-radius:6px;height:8px"><div style="width:${pct}%;height:100%;background:var(--accent);border-radius:6px"></div></div></div>`;
+}
+
+// ---- Modal ----
+const FIELDS = ['name','requester','temp','deadline','status','note','factoryMtg','estimate','estimateExpiry','customerReport','version','inputNo','device','shipDate','noteLink','mailTo','mailCc'];
+function openModal(id){
+  document.getElementById('overlay').classList.add('open');
+  const del = document.getElementById('delBtn');
+  const mailBtn = document.getElementById('mailBtn');
+  if(id){
+    const it = DATA.find(x=>x.id===id);
+    document.getElementById('modalTitle').textContent = '案件を編集';
+    setF('id',id); setF('ankenId', it.ankenId||'');
+    FIELDS.forEach(k=>setF(k, it[k]||''));
+    setF('temp', it.temp||'warm'); setF('status', it.status||'new');
+    del.style.display='inline-flex';
+    mailBtn.style.display='inline-flex';
+  } else {
+    document.getElementById('modalTitle').textContent = '新規案件を登録';
+    setF('id',''); setF('ankenId','');
+    FIELDS.forEach(k=>setF(k,''));
+    setF('temp','warm'); setF('status','new'); setF('factoryMtg',''); setF('customerReport','');
+    del.style.display='none';
+    mailBtn.style.display='none';
+  }
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+function setF(k,v){ document.getElementById('f_'+k).value = v; }
+function getF(k){ return document.getElementById('f_'+k).value.trim(); }
+
+function saveItem(){
+  const name = getF('name'), requester = getF('requester');
+  if(!name){ toast('案件名を入力してください', true); return; }
+  if(!requester){ toast('要求元を入力してください', true); return; }
+  const id = getF('id');
+  const now = new Date().toISOString().slice(0,10);
+  const obj = {};
+  FIELDS.forEach(k=>obj[k]=getF(k));
+  obj.updated = now;
+  if(id){ const i=DATA.findIndex(x=>x.id===id); DATA[i]={...DATA[i],...obj}; }
+  else {
+    obj.id='A'+Date.now().toString(36);
+    obj.ankenId = nextAnkenId();
+    obj.created=now;
+    DATA.unshift(obj);
+  }
+  persist(); render(); closeModal(); toast('保存しました（案件ID: '+(id? (DATA.find(x=>x.id===id).ankenId) : obj.ankenId)+'）');
+}
+// 案件IDを「A-年-連番3桁」で採番。既存の同年最大連番+1で衝突回避。
+function nextAnkenId(){
+  const y = new Date().getFullYear();
+  const prefix = 'A-'+y+'-';
+  let max = 0;
+  DATA.forEach(it=>{
+    if(it.ankenId && it.ankenId.startsWith(prefix)){
+      const n = parseInt(it.ankenId.slice(prefix.length),10);
+      if(!isNaN(n) && n>max) max=n;
+    }
+  });
+  return prefix + String(max+1).padStart(3,'0');
+}
+function deleteItem(){
+  const id = getF('id'); if(!id) return;
+  if(!confirm('この案件を削除しますか？')) return;
+  DATA = DATA.filter(x=>x.id!==id); persist(); render(); closeModal(); toast('削除しました');
+}
+
+// ---- メール下書き生成（レベル1：mailtoで開く。送信は人が行う） ----
+const TEMP_J = { hot:'高', warm:'中', cool:'低' };
+const STATUS_J = { new:'新規', progress:'対応中', done:'完了' };
+const FMTG_J = { '':'未実施', scheduled:'予定あり', done:'実施済み' };
+const CREP_J = { '':'未報告', reported:'報告済み', approved:'承認取得' };
+function genMail(){
+  const id = getF('id');
+  if(!id){ toast('先に保存してください', true); return; }
+  const it = DATA.find(x=>x.id===id);
+  if(!it){ return; }
+  const v = k => it[k] ? it[k] : '（未定）';
+  const subject = `[案件] ${it.ankenId} / ${it.name} / ${STATUS_J[it.status]||''}`;
+  const body =
+`案件ID: ${it.ankenId}
+案件名: ${it.name}
+要求元: ${it.requester}
+現場温度: ${TEMP_J[it.temp]||''}
+希望納期: ${v('deadline')}
+工場MTG: ${FMTG_J[it.factoryMtg]||'未実施'}
+工数(h): ${v('estimate')}
+見積り有効期限: ${v('estimateExpiry')}
+顧客報告: ${CREP_J[it.customerReport]||'未報告'}
+対応バージョン: ${v('version')}
+開発インプット番号: ${v('inputNo')}
+初回対応装置: ${v('device')}
+出荷日程: ${v('shipDate')}
+備考: ${it.note||''}`;
+  const params = [];
+  if(it.mailCc) params.push('cc='+encodeURIComponent(it.mailCc));
+  params.push('subject='+encodeURIComponent(subject));
+  params.push('body='+encodeURIComponent(body));
+  const href = 'mailto:'+encodeURIComponent(it.mailTo||'')+'?'+params.join('&');
+  window.location.href = href;
+  toast('メール下書きを開きました');
+}
+
+// ---- Export / Import ----
+const CSV_COLS = ['ankenId','name','requester','temp','deadline','status','factoryMtg','estimate','estimateExpiry','customerReport','version','inputNo','device','shipDate','noteLink','mailTo','mailCc','note','created','updated','id'];
+function exportCSV(){
+  const head = CSV_COLS.join(',');
+  const lines = DATA.map(it=>CSV_COLS.map(c=>`"${String(it[c]??'').replace(/"/g,'""')}"`).join(','));
+  download('anken_'+nowStamp()+'.csv', '\ufeff'+head+'\n'+lines.join('\n'), 'text/csv');
+  DIRTY = false;
+  persist(false);  // 保存済みに更新（dirtyを立てない）
+  toast('CSVを出力しました。Boxの共有ファイルへ上書き保存してください');
+}
+function importCSV(e){
+  const file = e.target.files[0]; if(!file) return;
+  if(DIRTY && !confirm('未保存の変更があります。CSVを読み込むと現在の内容は置き換わります。続けますか？')){ e.target.value=''; return; }
+  const r = new FileReader();
+  r.onload = ()=>{ try{
+    const rows = parseCSV(r.result.replace(/^\ufeff/,''));
+    if(rows.length<2) throw 0;
+    const head = rows[0];
+    const arr = rows.slice(1).filter(rw=>rw.some(c=>c!=='')).map(rw=>{
+      const o={}; head.forEach((h,i)=>o[h.trim()]=rw[i]??'');
+      if(!o.id) o.id='A'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+      return o;
+    });
+    DATA = arr;
+    DIRTY = false;
+    LAST_LOADED = { time: nowStamp(true), count: arr.length };
+    persist(false); render(); renderStartupPrompt();
+    toast(arr.length+'件を読み込みました');
+  }catch(_){ toast('CSV読込に失敗しました', true);} };
+  r.readAsText(file); e.target.value='';
+}
+// 簡易CSVパーサ（ダブルクオート対応）
+function parseCSV(text){
+  const rows=[]; let row=[], cur='', q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; }
+      else cur+=c;
+    } else {
+      if(c==='"') q=true;
+      else if(c===','){ row.push(cur); cur=''; }
+      else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+      else if(c==='\r'){}
+      else cur+=c;
+    }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+
+// ---- Excel初回取込 ----
+// 既存Excelの列名 → システム項目への対応表。表記ゆれは下のVAL_MAPで吸収。
+const XLSX_MAP = {
+  '案件id':'ankenId','案件ID':'ankenId','id':'ankenId',
+  '案件名':'name','件名':'name',
+  '要求元':'requester','依頼元':'requester',
+  '現場温度':'temp','温度':'temp',
+  '希望納期':'deadline','納期':'deadline',
+  '状況':'status','ステータス':'status',
+  '工場mtg':'factoryMtg','工場ミーティング':'factoryMtg','工場ミーティング実施状況':'factoryMtg',
+  '工数':'estimate','工数(h)':'estimate','工数（h）':'estimate','見積り':'estimate','見積り結果':'estimate',
+  '見積り有効期限':'estimateExpiry','見積有効期限':'estimateExpiry',
+  '顧客報告':'customerReport','顧客報告結果':'customerReport',
+  '対応バージョン':'version','バージョン':'version',
+  '開発インプット番号':'inputNo','インプット番号':'inputNo',
+  '初回対応装置':'device','対応装置':'device',
+  '出荷日程':'shipDate','出荷日':'shipDate',
+  '備考':'note','メモ':'note',
+  '宛先':'mailTo','to':'mailTo','cc':'mailCc'
+};
+const VAL_MAP = {
+  temp:{'高':'hot','急ぎ':'hot','中':'warm','前向き':'warm','低':'cool','様子見':'cool'},
+  status:{'新規':'new','未着手':'new','対応中':'progress','進行中':'progress','完了':'done','済':'done'},
+  factoryMtg:{'実施済み':'done','済':'done','予定あり':'scheduled','予定':'scheduled','未実施':'','':''},
+  customerReport:{'報告済み':'reported','承認取得':'approved','承認':'approved','未報告':'','':''}
+};
+function importXLSX(e){
+  const file = e.target.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ toast('Excelライブラリの読込に失敗（ネット接続が必要）', true); e.target.value=''; return; }
+  const r = new FileReader();
+  r.onload = ()=>{ try{
+    const wb = XLSX.read(new Uint8Array(r.result), {type:'array', cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(ws, {defval:'', raw:false});
+    if(!json.length) throw 0;
+    const now = today();
+    const arr = json.map(row=>{
+      const o={};
+      Object.keys(row).forEach(col=>{
+        const key = XLSX_MAP[col.trim()] || XLSX_MAP[col.trim().toLowerCase()];
+        if(key){
+          let val = String(row[col]).trim();
+          if(VAL_MAP[key] && VAL_MAP[key][val]!==undefined) val = VAL_MAP[key][val];
+          o[key]=val;
+        }
+      });
+      o.id='A'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+      o.created=o.created||now; o.updated=now;
+      if(!o.temp) o.temp='warm';
+      if(!o.status) o.status='new';
+      return o;
+    });
+    // 案件ID未設定の行に採番
+    DATA = arr;
+    DATA.forEach(it=>{ if(!it.ankenId) it.ankenId = nextAnkenId(); });
+    LAST_LOADED = { time: nowStamp(true), count: arr.length };
+    persist(false); render(); renderStartupPrompt(); toast(arr.length+'件をExcelから取り込みました');
+  }catch(_){ toast('Excel取込に失敗。列名をご確認ください', true);} };
+  r.readAsArrayBuffer(file); e.target.value='';
+}
+function download(fn, content, type){
+  const b = new Blob([content], {type}); const u = URL.createObjectURL(b);
+  const a = document.createElement('a'); a.href=u; a.download=fn; a.click(); URL.revokeObjectURL(u);
+}
+
+// ---- Util ----
+function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function fmtDate(d){ if(!d) return '<span style="color:var(--muted)">—</span>'; return d.slice(2).replace(/-/g,'/'); }
+function today(){ return new Date().toISOString().slice(0,10); }
+// ファイル名用(20260611_1430)と表示用(2026/06/11 14:30)の時刻文字列
+function nowStamp(display){
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return display
+    ? `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+    : `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+function sortBy(k){ if(sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=true; } render(); }
+function switchView(v){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.view===v));
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active', s.id==='view-'+v));
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>switchView(t.dataset.view));
+let toastTimer;
+function toast(msg, err){
+  const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(err?' err':'');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className='toast'+(err?' err':''),2200);
+}
+document.getElementById('overlay').addEventListener('click',e=>{ if(e.target.id==='overlay') closeModal(); });
+// 未保存(CSV未出力)の変更がある状態でページを閉じようとしたら警告
+window.addEventListener('beforeunload', e=>{ if(DIRTY){ e.preventDefault(); e.returnValue=''; } });
+
+load();
+</script>
+</body>
+</html>
