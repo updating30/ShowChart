@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案件管理システム</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #1a2129; --panel-2: #222b35; --line: #2e3a47;
+    --txt: #e8edf2; --muted: #8a99a8; --accent: #4ea8de; --accent-d: #3a87b8;
+    --ok: #5dc98e; --warn: #e0a64a; --danger: #e06666;
+    --radius: 10px; --shadow: 0 4px 20px rgba(0,0,0,0.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",system-ui,sans-serif;
+    background: var(--bg); color: var(--txt); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  header { background: linear-gradient(135deg,#1a2129,#131a21); border-bottom: 1px solid var(--line);
+    padding: 16px 24px; display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px; position: sticky; top: 0; z-index: 50; }
+  header h1 { font-size: 19px; font-weight: 700; letter-spacing: .5px; display: flex; align-items: center; gap: 10px; }
+  header h1 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .tabs { display: flex; gap: 4px; background: var(--panel-2); padding: 4px; border-radius: var(--radius); }
+  .tab { padding: 8px 16px; border: none; background: transparent; color: var(--muted);
+    border-radius: 7px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .15s; font-family: inherit; }
+  .tab.active { background: var(--accent); color: #fff; }
+  .tab:hover:not(.active) { color: var(--txt); }
+  main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  .view { display: none; } .view.active { display: block; }
+
+.alert-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.alert-card { flex: 1; min-width: 150px; background: var(–panel); border: 1px solid var(–line);
+border-radius: var(–radius); padding: 14px 18px; display: flex; flex-direction: column; gap: 2px; }
+.alert-card .n { font-size: 26px; font-weight: 700; } .alert-card .l { font-size: 12px; color: var(–muted); }
+.alert-card.danger { border-color: var(–danger); } .alert-card.danger .n { color: var(–danger); }
+.alert-card.warn { border-color: var(–warn); } .alert-card.warn .n { color: var(–warn); }
+.alert-card.ok .n { color: var(–ok); }
+
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+.btn { padding: 9px 16px; border: 1px solid var(–line); background: var(–panel-2); color: var(–txt);
+border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all .15s;
+font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(–accent); }
+.btn.primary { background: var(–accent); border-color: var(–accent); color: #fff; }
+.btn.primary:hover { background: var(–accent-d); }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 5px 10px; font-size: 12px; }
+.search { flex: 1; min-width: 180px; }
+.search input, select.filter { width: 100%; padding: 9px 14px; background: var(–panel);
+border: 1px solid var(–line); border-radius: 8px; color: var(–txt); font-size: 14px; font-family: inherit; }
+select.filter { width: auto; cursor: pointer; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(–accent); }
+
+.table-wrap { background: var(–panel); border: 1px solid var(–line); border-radius: var(–radius);
+overflow: auto; box-shadow: var(–shadow); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 11px 13px; text-align: left; font-size: 13px; border-bottom: 1px solid var(–line); white-space: nowrap; }
+th { background: var(–panel-2); color: var(–muted); font-weight: 600; position: sticky; top: 0; cursor: pointer; user-select: none; }
+th:hover { color: var(–txt); }
+tbody tr { transition: background .12s; cursor: pointer; }
+tbody tr:hover { background: var(–panel-2); }
+td.primary-cell { font-weight: 600; color: var(–txt); white-space: normal; min-width: 160px; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+background: rgba(78,168,222,.15); color: var(–accent); }
+.flag { color: var(–danger); font-weight: 700; font-size: 12px; }
+.muted { color: var(–muted); }
+.empty { text-align: center; padding: 60px 20px; color: var(–muted); }
+
+/* Sync + startup */
+.sync-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(–panel);
+border: 1px solid var(–line); border-radius: var(–radius); padding: 12px 18px; margin-bottom: 16px; }
+.sync-bar.dirty { border-color: var(–warn); background: rgba(224,166,74,.08); }
+.sync-bar .si { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+.sync-bar .si .label { color: var(–muted); } .sync-bar .si .val { font-weight: 600; }
+.sync-bar .si .val.warn { color: var(–warn); } .sync-bar .si .val.ok { color: var(–ok); }
+.sync-bar .grow { flex: 1; }
+.startup { display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+background: linear-gradient(135deg,rgba(78,168,222,.16),rgba(78,168,222,.06));
+border: 1px solid var(–accent); border-radius: var(–radius); padding: 16px 20px; margin-bottom: 16px; }
+.startup .ico { font-size: 26px; } .startup .msg { flex: 1; min-width: 220px; }
+.startup .msg .t { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+.startup .msg .d { font-size: 13px; color: var(–muted); }
+.startup .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Modal */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 100;
+align-items: flex-start; justify-content: center; padding: 30px 16px; overflow-y: auto; }
+.overlay.open { display: flex; }
+.modal { background: var(–panel); border: 1px solid var(–line); border-radius: 14px; width: 100%;
+max-width: 760px; box-shadow: var(–shadow); animation: pop .18s ease; }
+@keyframes pop { from { transform: translateY(12px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.modal-head { padding: 18px 24px; border-bottom: 1px solid var(–line); display: flex; justify-content: space-between; align-items: center; }
+.modal-head h2 { font-size: 17px; }
+.modal-head .x { background: none; border: none; color: var(–muted); font-size: 24px; cursor: pointer; line-height: 1; }
+.modal-body { padding: 24px; max-height: 70vh; overflow-y: auto; }
+.group-label { font-size: 12px; color: var(–accent); font-weight: 700; letter-spacing: 1px;
+margin: 22px 0 10px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.group-label:first-child { margin-top: 0; }
+.group-label::after { content:’’; flex:1; height:1px; background: var(–line); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-size: 13px; color: var(–muted); font-weight: 600; }
+.field label .req { color: var(–danger); }
+.field input, .field select, .field textarea { padding: 9px 12px; background: var(–panel-2);
+border: 1px solid var(–line); border-radius: 8px; color: var(–txt); font-size: 14px; font-family: inherit; }
+.field textarea { resize: vertical; min-height: 60px; }
+.field input[readonly] { color: var(–accent); font-weight: 700; }
+.modal-foot { padding: 16px 24px; border-top: 1px solid var(–line); display: flex; justify-content: space-between; gap: 10px; }
+.modal-foot .right { display: flex; gap: 10px; }
+.hint { font-size: 12px; color: var(–muted); margin-top: 4px; }
+
+/* Field manager */
+.fm-row { display: grid; grid-template-columns: 28px 1.4fr 1fr 1.4fr 70px 64px; gap: 10px; align-items: center;
+padding: 10px; border: 1px solid var(–line); border-radius: 8px; margin-bottom: 8px; background: var(–panel-2); }
+.fm-row.head { background: transparent; border: none; padding: 0 10px; margin-bottom: 4px; }
+.fm-row.head > div { font-size: 12px; color: var(–muted); font-weight: 700; }
+.fm-row input, .fm-row select { padding: 7px 9px; background: var(–panel); border: 1px solid var(–line);
+border-radius: 6px; color: var(–txt); font-size: 13px; font-family: inherit; width: 100%; }
+.fm-row .handle { cursor: grab; color: var(–muted); text-align: center; font-size: 16px; }
+.fm-row .del { background: none; border: none; color: var(–danger); cursor: pointer; font-size: 13px; font-weight: 600; }
+.fm-row.dragging { opacity: .5; }
+.fm-locked { font-size: 11px; color: var(–muted); text-align:center; }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+background: var(–ok); color: #06210f; padding: 12px 24px; border-radius: 10px; font-weight: 700;
+z-index: 200; transition: transform .3s; box-shadow: var(–shadow); }
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.err { background: var(–danger); color: #fff; }
+@media (max-width: 640px){ .grid { grid-template-columns: 1fr; } .fm-row { grid-template-columns: 24px 1fr 1fr; } }
+</style>
+
+</head>
+<body>
+<header>
+  <h1><span class="dot"></span>案件管理システム</h1>
+  <div class="tabs">
+    <button class="tab active" data-view="list">案件一覧</button>
+    <button class="tab" data-view="dashboard">ダッシュボード</button>
+    <button class="tab" data-view="fields">項目管理</button>
+  </div>
+</header>
+
+<main>
+  <!-- LIST -->
+  <section class="view active" id="view-list">
+    <div id="startupPrompt"></div>
+    <div id="syncBar"></div>
+    <div class="alert-bar" id="alertBar"></div>
+    <div class="toolbar">
+      <button class="btn primary" onclick="openCase()">＋ 新規案件を登録</button>
+      <div class="search"><input type="text" id="searchBox" placeholder="検索..." oninput="renderList()"></div>
+      <select class="filter" id="filterStatus" onchange="renderList()"><option value="">すべての状況</option></select>
+      <select class="filter" id="filterAlert" onchange="renderList()">
+        <option value="">すべて</option><option value="alert">要対応のみ</option></select>
+      <button class="btn ghost" onclick="exportCSV()">CSV出力</button>
+      <button class="btn ghost" onclick="document.getElementById('impCsv').click()">CSV読込</button>
+      <input type="file" id="impCsv" accept=".csv" style="display:none" onchange="importCSV(event)">
+      <button class="btn ghost" onclick="document.getElementById('impCsvMap').click()">列を指定して読込</button>
+      <input type="file" id="impCsvMap" accept=".csv" style="display:none" onchange="importCSVMapped(event)">
+    </div>
+    <div class="table-wrap"><table id="tbl"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  </section>
+
+  <!-- DASHBOARD -->
+
+  <section class="view" id="view-dashboard">
+    <div class="alert-bar" id="dashStats"></div>
+    <div class="table-wrap" style="padding:20px;margin-top:8px;">
+      <h3 style="font-size:15px;margin-bottom:14px;">状況別の件数</h3><div id="byStatus"></div>
+    </div>
+    <div class="table-wrap" style="padding:20px;margin-top:24px;">
+      <h3 style="font-size:15px;margin-bottom:14px;color:var(--danger);">⚠ 要対応の案件（期限切れ・期限間近）</h3>
+      <div id="dashAlerts"></div>
+    </div>
+  </section>
+
+  <!-- FIELDS -->
+
+  <section class="view" id="view-fields">
+    <div class="toolbar">
+      <button class="btn primary" onclick="addField()">＋ 項目を追加</button>
+      <button class="btn ghost" onclick="addGroup()">＋ グループを追加</button>
+      <div class="grow" style="flex:1"></div>
+      <button class="btn ghost" onclick="resetFields()">初期項目に戻す</button>
+    </div>
+    <div class="hint" style="margin-bottom:14px;">
+      案件の入力項目をここで自由に編集できます。項目名・タイプ（自由記入／日付／選択肢／数値／メモ）・所属グループ・一覧表示の有無・アラート対象を設定できます。
+      変更は即座にフォームと一覧に反映されます。ドラッグ（≡）で並び替えできます。
+    </div>
+    <div id="fieldManager"></div>
+  </section>
+</main>
+
+<!-- CASE MODAL -->
+
+<div class="overlay" id="caseOverlay">
+  <div class="modal">
+    <div class="modal-head"><h2 id="caseTitle">新規案件を登録</h2><button class="x" onclick="closeCase()">×</button></div>
+    <div class="modal-body"><input type="hidden" id="c_id"><div id="caseForm"></div></div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="caseDelBtn" onclick="deleteCase()" style="color:var(--danger);display:none;">削除</button>
+      <div class="right">
+        <button class="btn ghost" id="caseMailBtn" onclick="genMail()" style="display:none;">📧 メール下書きを作成</button>
+        <button class="btn ghost" onclick="closeCase()">キャンセル</button>
+        <button class="btn primary" onclick="saveCase()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAP MODAL -->
+
+<div class="overlay" id="mapOverlay">
+  <div class="modal">
+    <div class="modal-head"><h2>CSVの列を項目に対応づけ</h2><button class="x" onclick="closeMap()">×</button></div>
+    <div class="modal-body">
+      <div class="hint" style="margin-bottom:14px;">読み込んだCSVの各列を、システムのどの項目に割り当てるか選んでください。列名から自動推測した初期値が入っています。違う部分だけ直してください。</div>
+      <div id="mapRows"></div>
+    </div>
+    <div class="modal-foot"><div></div><div class="right">
+      <button class="btn ghost" onclick="closeMap()">キャンセル</button>
+      <button class="btn primary" onclick="applyMap()">この対応で読み込む</button>
+    </div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+/* ===================== 状態 ===================== */
+const STORE_KEY='anken_data_v2', SCHEMA_KEY='anken_schema_v2', META_KEY='anken_meta_v2';
+let DATA=[];            // 案件データ（各案件は {id, key:value...}）
+let SCHEMA=null;        // 項目定義 { groups:[...], fields:[...] }
+let sortKey='_updated', sortAsc=false;
+let DIRTY=false, LAST_LOADED=null, promptDismissed=false;
+let MAP_STATE=null;
+
+/* ===================== 既定スキーマ（御社CSVの20項目） ===================== */
+// type: text(自由記入) / textarea(メモ) / date(日付) / select(選択肢) / number(数値) / id(案件ID自動採番)
+// csv: 入出力時のCSV列名（御社CSVに合わせる）
+function defaultSchema(){
+  return {
+    groups: ['基本情報','日程','開発','メモ','連絡先'],
+    fields: [
+      { key:'ankenId',   label:'案件ID',        type:'id',     group:'基本情報', csv:'案件番号',   list:true,  required:false },
+      { key:'name',      label:'案件名',        type:'text',   group:'基本情報', csv:'Title',      list:true,  required:true },
+      { key:'requester', label:'要求元',        type:'text',   group:'基本情報', csv:'要求元',     list:true,  required:false },
+      { key:'owner',     label:'オーナー',      type:'text',   group:'基本情報', csv:'オーナー',   list:true,  required:false },
+      { key:'status',    label:'状況',          type:'select', group:'基本情報', csv:'Status',     list:true,  required:false, options:['新規','対応中','完了'], isStatus:true },
+      { key:'version',   label:'対応バージョン',type:'text',   group:'基本情報', csv:'Version',    list:false, required:false },
+      { key:'description',label:'説明',         type:'textarea',group:'基本情報',csv:'Description',list:false, required:false },
+
+      { key:'reqTiming', label:'顧客要求時期',  type:'date',   group:'日程', csv:'顧客要求時期', list:true,  required:false, alert:true },
+      { key:'deadline',  label:'Deadline',      type:'date',   group:'日程', csv:'Deadline',     list:true,  required:false, alert:true },
+      { key:'estExpiry', label:'見積有効期限',  type:'date',   group:'日程', csv:'見積有効期限', list:false, required:false, alert:true },
+      { key:'firstShip', label:'初回出荷',      type:'date',   group:'日程', csv:'1st ship',     list:true,  required:false, alert:false },
+
+      { key:'input',     label:'Input',         type:'text',   group:'開発', csv:'Input',        list:false, required:false },
+      { key:'devInput',  label:'開発Input',     type:'text',   group:'開発', csv:'開発Input',    list:false, required:false },
+      { key:'cutin',     label:'カットイン',    type:'text',   group:'開発', csv:'カットイン',   list:false, required:false },
+      { key:'alignMtg',  label:'アライン会議',  type:'select', group:'開発', csv:'アライン会議', list:false, required:false, options:['未実施','予定','実施済み'] },
+      { key:'serialNo',  label:'シリアルNo',    type:'text',   group:'開発', csv:'シリアルNo',   list:false, required:false },
+
+      { key:'memo',      label:'メモ1',         type:'textarea', group:'メモ', csv:'memo',  list:false, required:false },
+      { key:'memo2',     label:'メモ2',         type:'textarea', group:'メモ', csv:'memo2', list:false, required:false },
+      { key:'memo3',     label:'メモ3',         type:'textarea', group:'メモ', csv:'memo3', list:false, required:false },
+      { key:'note',      label:'備考',          type:'textarea', group:'メモ', csv:'備考',  list:false, required:false },
+
+      { key:'noteLink',  label:'OneNoteリンク', type:'text',  group:'連絡先', csv:'OneNote', list:false, required:false, isNoteLink:true },
+      { key:'mailTo',    label:'宛先(To)',      type:'text',  group:'連絡先', csv:'宛先',    list:false, required:false, isMailTo:true },
+      { key:'mailCc',    label:'CC',            type:'text',  group:'連絡先', csv:'CC',      list:false, required:false, isMailCc:true }
+    ]
+  };
+}
+
+/* ===================== 永続化 ===================== */
+async function boot(){
+  try { const s = await window.storage.get(SCHEMA_KEY); SCHEMA = s ? JSON.parse(s.value) : defaultSchema(); }
+  catch(e){ SCHEMA = defaultSchema(); }
+  if(!SCHEMA || !SCHEMA.fields) SCHEMA = defaultSchema();
+  try { const r = await window.storage.get(STORE_KEY); DATA = r ? JSON.parse(r.value) : []; }
+  catch(e){ DATA = []; }
+  try { const m = await window.storage.get(META_KEY); if(m){ const o=JSON.parse(m.value); DIRTY=!!o.dirty; LAST_LOADED=o.lastLoaded||null; } }
+  catch(e){}
+  refreshAll();
+  renderStartup();
+}
+async function persistData(markDirty){
+  if(markDirty!==false) DIRTY=true;
+  try {
+    await window.storage.set(STORE_KEY, JSON.stringify(DATA));
+    await window.storage.set(META_KEY, JSON.stringify({dirty:DIRTY,lastLoaded:LAST_LOADED}));
+  } catch(e){ toast('保存に失敗しました', true); }
+  renderSyncBar();
+}
+async function persistSchema(){
+  try { await window.storage.set(SCHEMA_KEY, JSON.stringify(SCHEMA)); } catch(e){}
+}
+
+/* ===================== ヘルパ ===================== */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function nowStamp(disp){ const d=new Date(),p=n=>String(n).padStart(2,'0');
+  return disp ? `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+              : `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`; }
+function fmtDate(d){ if(!d) return '<span class="muted">—</span>'; return String(d).length>=10? String(d).slice(2).replace(/-/g,'/') : esc(d); }
+function field(key){ return SCHEMA.fields.find(f=>f.key===key); }
+function statusField(){ return SCHEMA.fields.find(f=>f.isStatus); }
+function idField(){ return SCHEMA.fields.find(f=>f.type==='id'); }
+function daysUntil(d){ if(!d) return null; const t=new Date(); t.setHours(0,0,0,0); const x=new Date(d); if(isNaN(x)) return null; return Math.round((x-t)/86400000); }
+
+// 案件のアラート（日付項目で alert:true のものが期限切れ/間近）
+function caseAlerts(it){
+  const a=[]; const sf=statusField();
+  const done = sf && it[sf.key]==='完了';
+  if(done) return a;
+  SCHEMA.fields.forEach(f=>{
+    if(f.alert && f.type==='date'){
+      const d=daysUntil(it[f.key]);
+      if(d!==null){ if(d<0) a.push(f.label+'超過'); else if(d<=14) a.push(f.label+'間近'); }
+    }
+  });
+  return a;
+}
+function nextAnkenId(){
+  const y=new Date().getFullYear(), pre='A-'+y+'-', idf=idField(); if(!idf) return '';
+  let max=0; DATA.forEach(it=>{ const v=it[idf.key]||''; if(v.startsWith(pre)){ const n=parseInt(v.slice(pre.length),10); if(!isNaN(n)&&n>max) max=n; } });
+  return pre+String(max+1).padStart(3,'0');
+}
+
+/* ===================== 描画：一覧 ===================== */
+function refreshAll(){ rebuildFilters(); renderList(); renderSyncBar(); renderDashboard(); renderFieldManager(); }
+
+function rebuildFilters(){
+  const sf=statusField(), sel=document.getElementById('filterStatus');
+  let html='<option value="">すべての状況</option>';
+  if(sf && sf.options) html += sf.options.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('');
+  sel.innerHTML=html;
+}
+function renderList(){
+  const listFields = SCHEMA.fields.filter(f=>f.list);
+  document.getElementById('thead').innerHTML = '<tr>' +
+    listFields.map(f=>`<th onclick="sortList('${f.key}')">${esc(f.label)}</th>`).join('') +
+    '<th>調整漏れ</th><th>記録</th><th onclick="sortList(\'_updated\')">更新</th></tr>';
+
+  const q=(document.getElementById('searchBox').value||'').toLowerCase();
+  const fs=document.getElementById('filterStatus').value;
+  const fa=document.getElementById('filterAlert').value;
+  const sf=statusField();
+  let rows=DATA.filter(it=>{
+    if(q){ const hay=Object.values(it).join(' ').toLowerCase(); if(!hay.includes(q)) return false; }
+    if(fs && sf && it[sf.key]!==fs) return false;
+    if(fa==='alert' && caseAlerts(it).length===0) return false;
+    return true;
+  });
+  rows.sort((a,b)=>{ let x=a[sortKey]||'',y=b[sortKey]||''; if(x<y) return sortAsc?-1:1; if(x>y) return sortAsc?1:-1; return 0; });
+
+  const noteF = SCHEMA.fields.find(f=>f.isNoteLink);
+  const tb=document.getElementById('tbody');
+  if(!rows.length){ tb.innerHTML=`<tr><td colspan="${listFields.length+3}"><div class="empty">該当する案件がありません。「＋ 新規案件を登録」から追加してください。</div></td></tr>`; return; }
+  tb.innerHTML = rows.map(it=>{
+    const cells = listFields.map((f,i)=>{
+      let v=it[f.key];
+      if(f.type==='date') v=fmtDate(v);
+      else if(f.type==='id') v=`<span style="font-family:monospace;color:var(--accent);font-weight:700">${esc(it[f.key]||'—')}</span>`;
+      else if(f.isStatus) v=it[f.key]?`<span class="badge">${esc(it[f.key])}</span>`:'<span class="muted">—</span>';
+      else v=esc(v||'')||'<span class="muted">—</span>';
+      return `<td class="${i===0||f.key==='name'?'primary-cell':''}">${v}</td>`;
+    }).join('');
+    const al=caseAlerts(it);
+    const alCell = al.length? `<td><span class="flag">⚠ ${esc(al.join(' / '))}</span></td>` : '<td class="muted">—</td>';
+    const link = noteF && it[noteF.key];
+    const noteCell = `<td>${link?`<a href="${esc(it[noteF.key])}" target="_blank" onclick="event.stopPropagation()" title="記録ノートを開く" style="text-decoration:none;font-size:16px">📓</a>`:'<span style="color:var(--line)">📓</span>'}</td>`;
+    return `<tr onclick="openCase('${it.id}')">${cells}${alCell}${noteCell}<td class="muted">${fmtDate(it._updated)}</td></tr>`;
+  }).join('');
+}
+function sortList(k){ if(sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=true; } renderList(); }
+
+function renderSyncBar(){
+  const el=document.getElementById('syncBar'); if(!el) return;
+  const loaded = LAST_LOADED? `${LAST_LOADED.time}（${LAST_LOADED.count}件）` : '未読込（このブラウザのデータを表示中）';
+  el.className='sync-bar'+(DIRTY?' dirty':'');
+  el.innerHTML=`<div class="si"><span class="label">Boxの保存状態:</span>
+      <span class="val ${DIRTY?'warn':'ok'}">${DIRTY?'⚠ 未保存の変更あり':'✓ 保存済み'}</span></div>
+    <div class="si"><span class="label">最後にCSV読込:</span><span class="val">${loaded}</span></div>
+    <div class="grow"></div>
+    ${DIRTY?'<button class="btn primary" onclick="exportCSV()">💾 BoxへCSV保存</button>':''}`;
+}
+function renderStartup(){
+  const el=document.getElementById('startupPrompt'); if(!el) return;
+  const loadedToday = LAST_LOADED && LAST_LOADED.time && LAST_LOADED.time.startsWith(nowStamp(true).slice(0,10));
+  if(promptDismissed||loadedToday){ el.innerHTML=''; return; }
+  const last = LAST_LOADED? `前回の読込: ${LAST_LOADED.time}（${LAST_LOADED.count}件）` : 'まだ一度も共有CSVを読み込んでいません';
+  el.innerHTML=`<div class="startup"><div class="ico">📥</div>
+    <div class="msg"><div class="t">作業を始める前に、Boxの最新CSVを読み込みましょう</div>
+      <div class="d">${last}。表示中は前回このPCで保存した内容です。最新の共有データを取り込んでから編集してください。</div></div>
+    <div class="acts"><button class="btn primary" onclick="document.getElementById('impCsv').click()">📥 最新CSVを読み込む</button>
+      <button class="btn ghost" onclick="promptDismissed=true;renderStartup()">前回の続きで作業する</button></div></div>`;
+}
+
+/* ===================== 描画：ダッシュボード ===================== */
+function renderDashboard(){
+  const sf=statusField();
+  const active=DATA.filter(it=>!(sf&&it[sf.key]==='完了'));
+  const alertItems=active.filter(it=>caseAlerts(it).length>0);
+  const cards=`
+    <div class="alert-card"><span class="n">${DATA.length}</span><span class="l">全案件</span></div>
+    <div class="alert-card ${alertItems.length?'danger':'ok'}"><span class="n">${alertItems.length}</span><span class="l">要対応</span></div>
+    <div class="alert-card ok"><span class="n">${DATA.length-active.length}</span><span class="l">完了</span></div>`;
+  document.getElementById('alertBar').innerHTML=cards;
+  document.getElementById('dashStats').innerHTML=cards;
+
+  const total=DATA.length||1;
+  if(sf&&sf.options){
+    const c={}; sf.options.forEach(o=>c[o]=0); DATA.forEach(it=>{ if(c[it[sf.key]]!==undefined) c[it[sf.key]]++; });
+    document.getElementById('byStatus').innerHTML=sf.options.map(o=>bar(o,c[o],total)).join('');
+  } else { document.getElementById('byStatus').innerHTML='<div class="muted">状況の項目がありません</div>'; }
+
+  document.getElementById('dashAlerts').innerHTML = alertItems.length
+    ? alertItems.map(it=>`<div style="padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;display:flex;justify-content:space-between;gap:12px" onclick="switchView('list');openCase('${it.id}')">
+        <span><b>${esc(it.name||'(名称未設定)')}</b> <span class="muted">/ ${esc(it.requester||'')}</span></span>
+        <span class="flag">⚠ ${esc(caseAlerts(it).join(' / '))}</span></div>`).join('')
+    : '<div style="color:var(--ok)">現在、要対応の案件はありません。</div>';
+}
+function bar(label,n,total){ const pct=Math.round(n/total*100);
+  return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${esc(label)}</span><span class="muted">${n}件</span></div>
+    <div style="background:var(--panel-2);border-radius:6px;height:8px"><div style="width:${pct}%;height:100%;background:var(--accent);border-radius:6px"></div></div></div>`; }
+
+/* ===================== 案件モーダル ===================== */
+function openCase(id){
+  document.getElementById('caseOverlay').classList.add('open');
+  const it = id? DATA.find(x=>x.id===id) : {};
+  document.getElementById('c_id').value = id||'';
+  document.getElementById('caseTitle').textContent = id?'案件を編集':'新規案件を登録';
+  document.getElementById('caseDelBtn').style.display = id?'inline-flex':'none';
+  document.getElementById('caseMailBtn').style.display = id?'inline-flex':'none';
+  const groups = SCHEMA.groups.slice();
+  SCHEMA.fields.forEach(f=>{ if(!groups.includes(f.group)) groups.push(f.group); });
+  let html='';
+  groups.forEach(g=>{
+    const fs=SCHEMA.fields.filter(f=>f.group===g);
+    if(!fs.length) return;
+    html+=`<div class="group-label">${esc(g)}</div><div class="grid">`;
+    fs.forEach(f=>{ html+=fieldInput(f, it[f.key]); });
+    html+=`</div>`;
+  });
+  document.getElementById('caseForm').innerHTML=html;
+}
+function fieldInput(f, val){
+  val = val==null?'':val;
+  const full = (f.type==='textarea')?' full':'';
+  const req = f.required? ' <span class="req">*</span>':'';
+  let inner='';
+  if(f.type==='id') inner=`<input type="text" id="cf_${f.key}" value="${esc(val)}" readonly placeholder="保存時に自動採番">`;
+  else if(f.type==='date') inner=`<input type="date" id="cf_${f.key}" value="${esc(val)}">`;
+  else if(f.type==='number') inner=`<input type="number" step="any" id="cf_${f.key}" value="${esc(val)}">`;
+  else if(f.type==='textarea') inner=`<textarea id="cf_${f.key}">${esc(val)}</textarea>`;
+
+else if(f.type===‘select’){ const opts=[’<option value=""></option>’].concat((f.options||[]).map(o=>`<option value="${esc(o)}"${o===val?' selected':''}>${esc(o)}</option>`)).join(’’);
+inner=`<select id="cf_${f.key}">${opts}</select>`; }
+else inner=`<input type="text" id="cf_${f.key}" value="${esc(val)}">`;
+return `<div class="field${full}"><label>${esc(f.label)}${req}</label>${inner}</div>`;
+}
+function closeCase(){ document.getElementById(‘caseOverlay’).classList.remove(‘open’); }
+function saveCase(){
+const id=document.getElementById(‘c_id’).value;
+for(const f of SCHEMA.fields){ if(f.required){ const el=document.getElementById(‘cf_’+f.key); const v=(el?el.value:’’).trim(); if(!v){ toast(f.label+‘を入力してください’, true); return; } } }
+const obj={};
+SCHEMA.fields.forEach(f=>{ const el=document.getElementById(‘cf_’+f.key); if(el) obj[f.key]=el.value.trim(); });
+obj._updated=today();
+if(id){ const i=DATA.findIndex(x=>x.id===id); DATA[i]={…DATA[i],…obj}; }
+else {
+obj.id=‘C’+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const idf=idField(); if(idf && !obj[idf.key]) obj[idf.key]=nextAnkenId();
+obj._created=today(); DATA.unshift(obj);
+}
+persistData(); refreshAll(); closeCase(); toast(‘保存しました’);
+}
+function deleteCase(){
+const id=document.getElementById(‘c_id’).value; if(!id) return;
+if(!confirm(‘この案件を削除しますか？’)) return;
+DATA=DATA.filter(x=>x.id!==id); persistData(); refreshAll(); closeCase(); toast(‘削除しました’);
+}
+
+/* ===================== メール下書き ===================== */
+function genMail(){
+const id=document.getElementById(‘c_id’).value; if(!id){ toast(‘先に保存してください’,true); return; }
+const it=DATA.find(x=>x.id===id); if(!it) return;
+const idf=idField(), sf=statusField();
+const subj=`[案件] ${idf?(it[idf.key]||''):''} / ${it.name||''} / ${sf?(it[sf.key]||''):''}`;
+const lines=SCHEMA.fields.filter(f=>!f.isMailTo&&!f.isMailCc).map(f=>`${f.label}: ${it[f.key]||''}`);
+const mtF=SCHEMA.fields.find(f=>f.isMailTo), ccF=SCHEMA.fields.find(f=>f.isMailCc);
+const to=mtF?(it[mtF.key]||’’):’’, cc=ccF?(it[ccF.key]||’’):’’;
+const params=[]; if(cc) params.push(‘cc=’+encodeURIComponent(cc));
+params.push(‘subject=’+encodeURIComponent(subj)); params.push(‘body=’+encodeURIComponent(lines.join(’\n’)));
+window.location.href=‘mailto:’+encodeURIComponent(to)+’?’+params.join(’&’);
+toast(‘メール下書きを開きました’);
+}
+
+/* ===================== CSV 入出力 ===================== */
+function exportCSV(){
+const cols=SCHEMA.fields.map(f=>f.csv||f.label);
+const head=cols.join(’,’);
+const lines=DATA.map(it=>SCHEMA.fields.map(f=>`"${String(it[f.key]??'').replace(/"/g,'""')}"`).join(’,’));
+const blob=new Blob([’\ufeff’+head+’\n’+lines.join(’\n’)],{type:‘text/csv’});
+const u=URL.createObjectURL(blob),a=document.createElement(‘a’);
+a.href=u; a.download=‘anken_’+nowStamp()+’.csv’; a.click(); URL.revokeObjectURL(u);
+DIRTY=false; persistData(false); toast(‘CSVを出力しました。Boxの共有ファイルへ上書き保存してください’);
+}
+// 通常読込：CSV列名 = 各項目のcsv名 が一致する前提
+function importCSV(e){
+const file=e.target.files[0]; if(!file) return;
+if(DIRTY && !confirm(‘未保存の変更があります。読み込むと現在の内容は置き換わります。続けますか？’)){ e.target.value=’’; return; }
+const r=new FileReader();
+r.onload=()=>{ try{
+const rows=parseCSV(r.result.replace(/^\ufeff/,’’)); if(rows.length<2) throw 0;
+const head=rows[0].map(h=>h.trim());
+const colToKey={};
+head.forEach((h,i)=>{
+let f=SCHEMA.fields.find(f=>(f.csv||f.label)===h);
+if(!f){ const k=XLSX_MAP[h]||XLSX_MAP[h.toLowerCase()]; if(k) f=SCHEMA.fields.find(x=>x.key===k); }
+if(f) colToKey[i]=f.key;
+});
+loadRows(rows.slice(1), colToKey);
+}catch(_){ toast(‘CSV読込に失敗しました’, true);} };
+r.readAsText(file); e.target.value=’’;
+}
+function loadRows(dataRows, colToKey){
+const now=today();
+const arr=dataRows.filter(rw=>rw.some(c=>c!==’’)).map(rw=>{
+const o={};
+Object.keys(colToKey).forEach(i=>{ o[colToKey[i]] = (rw[i]??’’).trim(); });
+o.id=‘C’+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+o._created=now; o.*updated=now;
+return o;
+});
+DATA=arr;
+const idf=idField(); if(idf) DATA.forEach(it=>{ if(!it[idf.key]) it[idf.key]=nextAnkenId(); });
+DIRTY=false; LAST_LOADED={time:nowStamp(true),count:arr.length};
+persistData(false); refreshAll(); renderStartup(); toast(arr.length+‘件を読み込みました’);
+}
+// 列指定読込：マッピング画面
+function importCSVMapped(e){
+const file=e.target.files[0]; if(!file) return;
+if(DIRTY && !confirm(‘未保存の変更があります。読み込むと現在の内容は置き換わります。続けますか？’)){ e.target.value=’’; return; }
+const r=new FileReader();
+r.onload=()=>{ try{
+const rows=parseCSV(r.result.replace(/^\ufeff/,’’)); if(rows.length<1) throw 0;
+MAP_STATE={ head:rows[0].map(h=>h.trim()), rows:rows.slice(1).filter(rw=>rw.some(c=>c!==’’)) };
+buildMapModal(); document.getElementById(‘mapOverlay’).classList.add(‘open’);
+}catch(*){ toast(‘CSVの読み取りに失敗しました’, true);} };
+r.readAsText(file); e.target.value=’’;
+}
+function buildMapModal(){
+const cols=MAP_STATE.head;
+const guess={};
+cols.forEach(col=>{
+const direct=SCHEMA.fields.find(f=>(f.csv||f.label)===col);
+const key = direct? direct.key : (XLSX_MAP[col]||XLSX_MAP[col.toLowerCase()]);
+if(key && !guess[key]) guess[key]=col;
+});
+const buildOpts=sel=>[’<option value="">（取り込まない）</option>’].concat(cols.map(c=>`<option value="${esc(c)}"${c===sel?' selected':''}>${esc(c)}</option>`)).join(’’);
+document.getElementById(‘mapRows’).innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;align-items:center;"> <div style="font-size:12px;color:var(--muted);font-weight:700;">システム項目</div> <div style="font-size:12px;color:var(--muted);font-weight:700;">CSVの列</div> ${SCHEMA.fields.map(f=>`<div style="font-size:13px;">${esc(f.label)}</div>
+<select id="mp_${f.key}" style="padding:7px 10px;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;color:var(--txt);font-size:13px;font-family:inherit;">${buildOpts(guess[f.key]||’’)}</select>`).join(’’)}
+
+  </div>`;
+}
+function applyMap(){
+  if(!MAP_STATE) return;
+  const colIndex={}; MAP_STATE.head.forEach((c,i)=>colIndex[c]=i);
+  const colToKey={};
+  SCHEMA.fields.forEach(f=>{ const v=document.getElementById('mp_'+f.key).value; if(v && colIndex[v]!==undefined) colToKey[colIndex[v]]=f.key; });
+  if(!Object.values(colToKey).includes('name')){ toast('「案件名」に対応する列を選んでください', true); return; }
+  loadRows(MAP_STATE.rows, colToKey);
+  closeMap();
+}
+function closeMap(){ document.getElementById('mapOverlay').classList.remove('open'); MAP_STATE=null; }
+
+// CSVパーサ（クオート対応）
+function parseCSV(text){
+const rows=[]; let row=[],cur=’’,q=false;
+for(let i=0;i<text.length;i++){ const c=text[i];
+if(q){ if(c===’”’){ if(text[i+1]===’”’){cur+=’”’;i++;} else q=false; } else cur+=c; }
+else { if(c===’”’) q=true; else if(c===’,’){ row.push(cur); cur=’’; }
+else if(c===’\n’){ row.push(cur); rows.push(row); row=[]; cur=’’; }
+else if(c===’\r’){} else cur+=c; } }
+if(cur!==’’||row.length){ row.push(cur); rows.push(row); }
+return rows;
+}
+// CSV列名 → field.key 推測（英語列名・表記ゆれ）
+const XLSX_MAP={
+‘title’:‘name’,‘案件名’:‘name’,‘件名’:‘name’,
+‘description’:‘description’,‘説明’:‘description’,
+‘status’:‘status’,‘状況’:‘status’,‘ステータス’:‘status’,
+‘memo’:‘memo’,‘memo2’:‘memo2’,‘memo3’:‘memo3’,‘備考’:‘note’,
+‘案件番号’:‘ankenId’,‘案件id’:‘ankenId’,‘管理番号’:‘ankenId’,
+‘version’:‘version’,‘対応バージョン’:‘version’,
+‘見積有効期限’:‘estExpiry’,‘見積り有効期限’:‘estExpiry’,
+‘要求元’:‘requester’,‘依頼元’:‘requester’,
+‘オーナー’:‘owner’,‘担当’:‘owner’,‘担当者’:‘owner’,
+‘input’:‘input’,‘開発input’:‘devInput’,
+‘顧客要求時期’:‘reqTiming’,‘希望納期’:‘reqTiming’,
+‘deadline’:‘deadline’,‘納期’:‘deadline’,
+‘1st ship’:‘firstShip’,‘初回出荷’:‘firstShip’,‘出荷日’:‘firstShip’,
+‘カットイン’:‘cutin’,‘アライン会議’:‘alignMtg’,‘シリアルno’:‘serialNo’,
+‘onenote’:‘noteLink’,‘宛先’:‘mailTo’,‘to’:‘mailTo’,‘cc’:‘mailCc’
+};
+
+/* ===================== 項目管理 ===================== */
+const TYPE_LABELS={ text:‘自由記入’, textarea:‘メモ(複数行)’, date:‘日付’, select:‘選択肢’, number:‘数値’, id:‘案件ID(自動採番)’ };
+function renderFieldManager(){
+const groups=SCHEMA.groups.slice(); SCHEMA.fields.forEach(f=>{ if(!groups.includes(f.group)) groups.push(f.group); });
+const groupOpts=g=>groups.map(x=>`<option value="${esc(x)}"${x===g?' selected':''}>${esc(x)}</option>`).join(’’);
+const typeOpts=t=>Object.keys(TYPE_LABELS).map(k=>`<option value="${k}"${k===t?' selected':''}>${TYPE_LABELS[k]}</option>`).join(’’);
+let html=`<div class="fm-row head"><div></div><div>項目名</div><div>タイプ</div><div>グループ</div><div>一覧表示</div><div></div></div>`;
+SCHEMA.fields.forEach((f,idx)=>{
+const locked = f.type===‘id’||f.key===‘name’;
+html+=`<div class="fm-row" draggable="true" data-idx="${idx}" ondragstart="fmDragStart(event,${idx})" ondragover="event.preventDefault()" ondrop="fmDrop(event,${idx})" ondragend="fmDragEnd(event)"> <div class="handle">≡</div> <input type="text" value="${esc(f.label)}" onchange="fmEdit(${idx},'label',this.value)"> <select onchange="fmEdit(${idx},'type',this.value)" ${locked?'disabled':''}>${typeOpts(f.type)}</select> <select onchange="fmEdit(${idx},'group',this.value)">${groupOpts(f.group)}</select> <input type="checkbox" ${f.list?'checked':''} onchange="fmEdit(${idx},'list',this.checked)" style="width:auto;justify-self:center"> ${locked?'<span class="fm-locked">必須</span>':`<button class="del" onclick="fmDelete(${idx})">削除</button>`} </div>`;
+if(f.type===‘select’){
+html+=`<div class="fm-row" style="grid-template-columns:28px 1fr;background:transparent;border:none;margin-top:-4px;padding-top:0;"> <div></div><input type="text" value="${esc((f.options||[]).join(', '))}" placeholder="選択肢をカンマ区切りで（例：未着手, 対応中, 完了）" onchange="fmEditOptions(${idx},this.value)"> </div>`;
+}
+if(f.type===‘date’){
+html+=`<div class="fm-row" style="grid-template-columns:28px 1fr;background:transparent;border:none;margin-top:-4px;padding-top:0;font-size:12px;color:var(--muted)"> <div></div><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" ${f.alert?'checked':''} onchange="fmEdit(${idx},'alert',this.checked)" style="width:auto">この日付でアラートを出す（期限切れ／14日以内）</label> </div>`;
+}
+});
+document.getElementById(‘fieldManager’).innerHTML=html;
+}
+function fmEdit(idx,key,val){ SCHEMA.fields[idx][key]=val; persistSchema(); if(key===‘type’||key===‘label’){ renderFieldManager(); } refreshAll(); }
+function fmEditOptions(idx,val){ SCHEMA.fields[idx].options=val.split(’,’).map(s=>s.trim()).filter(Boolean); persistSchema(); refreshAll(); }
+function fmDelete(idx){ const f=SCHEMA.fields[idx]; if(f.type===‘id’||f.key===‘name’){ toast(‘この項目は削除できません’,true); return; }
+if(!confirm(`項目「${f.label}」を削除しますか？（入力済みデータは残りますが一覧から消えます）`)) return;
+SCHEMA.fields.splice(idx,1); persistSchema(); renderFieldManager(); refreshAll(); toast(‘項目を削除しました’); }
+function addField(){
+const key=‘f’+Date.now().toString(36);
+SCHEMA.fields.push({ key, label:‘新しい項目’, type:‘text’, group:SCHEMA.groups[0]||‘基本情報’, csv:‘新しい項目’, list:false, required:false });
+persistSchema(); renderFieldManager(); refreshAll(); toast(‘項目を追加しました。名前とタイプを設定してください’);
+}
+function addGroup(){ const name=prompt(‘グループ名を入力してください’); if(!name) return; if(!SCHEMA.groups.includes(name)) SCHEMA.groups.push(name); persistSchema(); renderFieldManager(); toast(‘グループを追加しました’); }
+function resetFields(){ if(!confirm(‘項目定義を初期状態（御社CSVの20項目）に戻しますか？案件データは消えません。’)) return; SCHEMA=defaultSchema(); persistSchema(); refreshAll(); toast(‘初期項目に戻しました’); }
+
+// ドラッグ並び替え
+let fmDragIdx=null;
+function fmDragStart(e,idx){ fmDragIdx=idx; e.currentTarget.classList.add(‘dragging’); }
+function fmDragEnd(e){ e.currentTarget.classList.remove(‘dragging’); }
+function fmDrop(e,idx){ e.preventDefault(); if(fmDragIdx===null||fmDragIdx===idx) return;
+const f=SCHEMA.fields.splice(fmDragIdx,1)[0]; SCHEMA.fields.splice(idx,0,f); fmDragIdx=null;
+persistSchema(); renderFieldManager(); refreshAll(); }
+
+/* ===================== 共通 ===================== */
+function switchView(v){ document.querySelectorAll(’.tab’).forEach(t=>t.classList.toggle(‘active’,t.dataset.view===v));
+document.querySelectorAll(’.view’).forEach(s=>s.classList.toggle(‘active’,s.id===‘view-’+v)); }
+document.querySelectorAll(’.tab’).forEach(t=>t.onclick=()=>switchView(t.dataset.view));
+let toastTimer; function toast(msg,err){ const t=document.getElementById(‘toast’); t.textContent=msg; t.className=‘toast show’+(err?’ err’:’’);
+clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className=‘toast’+(err?’ err’:’’),2300); }
+document.getElementById(‘caseOverlay’).addEventListener(‘click’,e=>{ if(e.target.id===‘caseOverlay’) closeCase(); });
+document.getElementById(‘mapOverlay’).addEventListener(‘click’,e=>{ if(e.target.id===‘mapOverlay’) closeMap(); });
+window.addEventListener(‘beforeunload’,e=>{ if(DIRTY){ e.preventDefault(); e.returnValue=’’; } });
+
+boot();
+</script>
+
+</body>
+</html>
