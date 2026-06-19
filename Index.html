@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メール重要度分類</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Shippori+Mincho:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f8f9;--card:#ffffff;--surface2:#eef2f4;--line:#e1e7ea;--text:#1e292d;--muted:#62737a;
+    --accent:#11a39a;--accent-strong:#0c857e;--accent-text:#ffffff;--accent-soft:#def1ee;--accent2:var(--accent);
+    --field-bg:#ffffff;--ok:#0f6e56;--warn:#d32f2f;--ring:rgba(17,163,154,.24);
+    --radius:12px;--shadow:0 2px 4px rgba(20,30,40,.04), 0 1px 2px rgba(20,30,40,.02);--shadow-pop:0 12px 32px rgba(12,133,126,.12);
+    --font:"Space Grotesk","Zen Kaku Gothic New",system-ui,sans-serif;--font-head:var(--font);--head-spacing:-.01em;
+  }
+  [data-theme="company-fresh"]{
+    --bg:#f4f7f8;--card:#ffffff;--surface2:#eef3f4;--line:#e2e9ea;--text:#1f2d33;--muted:#6c7d84;
+    --accent:#11a39a;--accent-strong:#0c857e;--accent-text:#ffffff;--accent-soft:#def1ee;--accent2:#11a39a;
+    --field-bg:#ffffff;--ok:#0f6e56;--warn:#bb2d2d;--ring:rgba(17,163,154,.22);
+    --radius:12px;--shadow:0 2px 5px rgba(20,30,40,.05);--shadow-pop:0 10px 30px rgba(12,133,126,.16);
+    --font:"Space Grotesk","Zen Kaku Gothic New",system-ui,sans-serif;--font-head:var(--font);--head-spacing:-.01em;
+  }
+  [data-theme="company-efficient"]{
+    --bg:#edf0f4;--card:#ffffff;--surface2:#e3e9f0;--line:#cbd5e1;--text:#0f172a;--muted:#475569;
+    --accent:#1d4ed8;--accent-strong:#1e40af;--accent-text:#ffffff;--accent-soft:#dbeafe;--accent2:#1d4ed8;
+    --field-bg:#ffffff;--ok:#16a34a;--warn:#dc2626;--ring:rgba(29,78,216,.25);
+    --radius:6px;--shadow:0 1px 3px rgba(0,0,0,.05);--shadow-pop:0 8px 24px rgba(30,64,175,.15);
+    --font:"Space Grotesk","Zen Kaku Gothic New",system-ui,sans-serif;--font-head:var(--font);--head-spacing:0;
+  }
+  [data-theme="company-exec"]{
+    --bg:#f1f3f7;--card:#ffffff;--surface2:#e4e7ee;--line:#cfd4e0;--text:#0f141e;--muted:#4a5464;
+    --accent:#1e293b;--accent-strong:#0f172a;--accent-text:#ffffff;--accent-soft:#e2e8f0;--accent2:#b45309;
+    --field-bg:#ffffff;--ok:#15803d;--warn:#b91c1c;--ring:rgba(30,41,59,.20);
+    --radius:4px;--shadow:0 1px 2px rgba(0,0,0,.06);--shadow-pop:0 12px 28px rgba(15,23,42,.15);
+    --font:"Zen Kaku Gothic New",system-ui,sans-serif;--font-head:"Fraunces","Shippori Mincho",serif;--head-spacing:0;
+  }
+  [data-theme="cafe-soft"]{
+    --bg:#f7f3f0;--card:#fffbf9;--surface2:#f2e6e1;--line:#e8dad4;--text:#2d1f1d;--muted:#806b66;
+    --accent:#b43e62;--accent-strong:#942e4f;--accent-text:#ffffff;--accent-soft:#fcebee;--accent2:#b43e62;
+    --field-bg:#fffbf9;--ok:#2e7d32;--warn:#c62828;--ring:rgba(180,62,98,.20);
+    --radius:16px;--shadow:0 2px 6px rgba(60,30,30,.04);--shadow-pop:0 14px 32px rgba(148,46,79,.14);
+    --font:"Zen Maru Gothic",system-ui,sans-serif;--font-head:"Fraunces","Zen Maru Gothic",serif;--head-spacing:0;
+  }
+  [data-theme="cafe-dark"]{
+    --bg:#181614;--card:#24201e;--surface2:#2d2825;--line:#3d3632;--text:#f2ebdf;--muted:#a39689;
+    --accent:#e09f4c;--accent-strong:#cb8a37;--accent-text:#1c140c;--accent-soft:#3a3128;--accent2:#e09f4c;
+    --field-bg:#2d2825;--ok:#4ade80;--warn:#f87171;--ring:rgba(224,159,76,.30);
+    --radius:10px;--shadow:0 2px 4px rgba(0,0,0,.4);--shadow-pop:0 16px 36px rgba(0,0,0,.6);
+    --font:"Space Grotesk","Zen Kaku Gothic New",system-ui,sans-serif;--font-head:var(--font);--head-spacing:-.01em;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  header{background:var(--card);border-bottom:1px solid var(--line);padding:16px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:0 1px 2px rgba(0,0,0,.02);}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{color:var(--accent);display:flex;align-items:center;}
+  .brand h1{font-family:var(--font-head);font-size:21px;font-weight:700;letter-spacing:var(--head-spacing);margin:0;line-height:1;color:var(--text);}
+  .status{font-size:13px;font-weight:500;color:var(--muted);background:var(--surface2);padding:6px 14px;border-radius:999px;border:1px solid var(--line);display:inline-flex;align-items:center;gap:6px;}
+  .status.warn{color:var(--warn);border-color:var(--warn);background:rgba(211,47,47,.04);}
+  .theme-pick{margin-left:auto;display:flex;align-items:center;gap:10px;background:var(--surface2);padding:4px 12px;border-radius:999px;border:1px solid var(--line);}
+  .theme-pick label{font-size:13px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:4px;}
+  .wrap{max-width:1200px;margin:0 auto;padding:24px;}
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px;}
+  .spacer{margin-left:auto;}
+  button{font:inherit;font-weight:500;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 16px;border:1px solid var(--line);background:var(--card);border-radius:var(--radius);cursor:pointer;color:var(--text);box-shadow:var(--shadow);transition:all .2s cubic-bezier(.16,1,.3,1);}
+  button:hover{border-color:var(--accent);background:var(--surface2);color:var(--accent);}
+  button:active{transform:translateY(1px);box-shadow:none;}
+  button:disabled{opacity:.5;cursor:default;transform:none!important;box-shadow:var(--shadow)!important;color:var(--muted)!important;}
+  button svg{width:16px;height:16px;flex-shrink:0;}
+  button.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent);font-weight:600;}
+  button.primary:hover{background:var(--accent-strong);border-color:var(--accent-strong);color:var(--accent-text);transform:translateY(-1px);box-shadow:var(--shadow-pop);}
+  button.primary:active{transform:translateY(0);}
+  .filters{display:inline-flex;gap:4px;background:var(--surface2);border:1px solid var(--line);border-radius:999px;padding:4px;}
+  .filters button{border:none;background:transparent;border-radius:999px;padding:6px 14px;color:var(--muted);box-shadow:none;font-weight:600;font-size:13px;}
+  .filters button:hover{background:rgba(0,0,0,.03);color:var(--text);}
+  .filters button.active{background:var(--card);color:var(--accent);box-shadow:var(--shadow);}
+  [data-theme="cafe-dark"] .filters button:hover {background:rgba(255,255,255,.05);}
+  select{font:inherit;font-weight:500;font-size:13.5px;padding:6px 28px 6px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--field-bg);color:var(--text);cursor:pointer;transition:all .15s ease;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2362737a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;background-size:14px;}
+  select:hover{border-color:var(--accent);}
+  select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring);}
+  .table-container{width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  table{width:100%;border-collapse:separate;border-spacing:0;}
+  th,td{text-align:left;padding:14px 16px;border-bottom:1px solid var(--line);font-size:14.5px;vertical-align:middle;}
+  th{background:var(--surface2);font-weight:700;font-size:12px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;border-bottom:2px solid var(--line);padding:12px 16px;}
+  tbody tr{transition:background .15s ease;}
+  tbody tr:hover td{background:var(--surface2);}
+  tr:last-child td{border-bottom:none;}
+  .imp-col{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .imp{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;font-family:"Space Grotesk",var(--font);font-weight:700;font-size:14px;box-shadow:inset 0 -1px 0 rgba(0,0,0,.1);}
+  .imp-5{background:#fee2e2;color:#991b1b;}
+  .imp-4{background:#fef3c7;color:#92400e;}
+  .imp-3{background:#dbeafe;color:#1e40af;}
+  .imp-2{background:#f1f5f9;color:#475569;}
+  .imp-1{background:#f8fafc;color:#64748b;}
+  .imp-null{background:#fee2e2;color:#991b1b;}
+  [data-theme="cafe-dark"] .imp-5{background:#7f1d1d;color:#fca5a5;}
+  [data-theme="cafe-dark"] .imp-4{background:#78350f;color:#fde68a;}
+  [data-theme="cafe-dark"] .imp-3{background:#1e3a8a;color:#bfdbfe;}
+  [data-theme="cafe-dark"] .imp-2{background:#334155;color:#cbd5e1;}
+  [data-theme="cafe-dark"] .imp-1{background:#1e293b;color:#94a3b8;}
+  .subject{font-weight:600;font-size:14.5px;color:var(--text);margin-bottom:3px;}
+  .reason{color:var(--muted);font-size:13px;line-height:1.4;}
+  .meta{color:var(--muted);font-size:12.5px;font-family:var(--font);}
+  .tag{font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;text-transform:uppercase;display:inline-block;letter-spacing:0;}
+  .tag.corrected{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(17,163,154,.2);}
+  .tag.applied{background:rgba(15,110,86,.1);color:var(--ok);border:1px solid rgba(15,110,86,.2);}
+  .row-btn{font-size:13px;padding:6px 12px;border-radius:calc(var(--radius) * 0.7);background:var(--card);}
+  .row-btn:hover{background:var(--accent);color:var(--accent-text);border-color:var(--accent);}
+  .empty{text-align:center;padding:64px;color:var(--muted);font-weight:500;}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px 28px;margin-bottom:20px;box-shadow:var(--shadow);animation:modalIn .25s ease;}
+  .panel h2{font-family:var(--font-head);font-size:18px;font-weight:700;letter-spacing:var(--head-spacing);margin:0 0 6px;color:var(--text);display:flex;align-items:center;gap:8px;}
+  .panel .hint{font-size:13px;color:var(--muted);margin:0 0 20px;line-height:1.5;}
+  .field{margin-bottom:20px;}
+  .field label{display:block;font-size:13.5px;font-weight:700;margin-bottom:6px;color:var(--text);}
+  .field .sub{font-size:12.5px;color:var(--muted);font-weight:400;margin-left:6px;}
+  .field input,.field textarea{width:100%;font:inherit;font-size:14px;padding:10px 14px;border:1px solid var(--line);border-radius:calc(var(--radius) - 2px);background:var(--field-bg);color:var(--text);box-shadow:inset 0 1px 2px rgba(0,0,0,.02);transition:all .15s ease;}
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring);}
+  .field textarea{resize:vertical;}
+  .levels{display:grid;gap:10px;background:var(--surface2);padding:14px;border-radius:calc(var(--radius) - 2px);border:1px solid var(--line);}
+  .level-row{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:center;}
+  .level-row .lv{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;font-family:"Space Grotesk",var(--font);font-weight:700;}
+  .hidden{display:none !important;}
+  .save-row{display:flex;align-items:center;gap:12px;}
+  .save-msg{font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;}
+  .folder-list{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:calc(var(--radius) - 2px);padding:12px;background:var(--field-bg);box-shadow:inset 0 1px 3px rgba(0,0,0,.03);}
+  .folder-store{font-weight:700;font-size:12.5px;color:var(--accent);margin:14px 0 6px;letter-spacing:.04em;text-transform:uppercase;}
+  .folder-store:first-child{margin-top:0;}
+  .folder-item{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13.5px;cursor:pointer;transition:color .15s;}
+  .folder-item input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
+  .folder-item:hover{color:var(--accent);}
+  .folder-empty{font-size:13.5px;color:var(--muted);padding:8px 2px;font-weight:500;}
+  hr.sep{border:none;border-top:1px solid var(--line);margin:24px 0;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(15,18,22,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px;z-index:100;animation:overlayIn .2s ease;}
+  .modal{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:calc(var(--radius) + 4px);width:100%;max-width:720px;padding:28px;max-height:90vh;overflow:auto;box-shadow:var(--shadow-pop);animation:modalIn .25s cubic-bezier(.16,1,.3,1);}
+  .modal h3{font-family:var(--font-head);margin:0 0 12px;font-size:20px;font-weight:700;letter-spacing:var(--head-spacing);color:var(--text);}
+  .modal-note{font-size:13px;color:var(--text);background:var(--surface2);border-left:4px solid var(--accent);border-radius:0 calc(var(--radius) - 4px) calc(var(--radius) - 4px) 0;padding:12px 16px;margin:0 0 16px;line-height:1.6;opacity:0.95;}
+  .modal textarea{width:100%;font:inherit;font-size:14px;padding:12px 16px;border:1px solid var(--line);border-radius:calc(var(--radius) - 2px);background:var(--field-bg);color:var(--text);resize:vertical;line-height:1.7;box-shadow:inset 0 1px 2px rgba(0,0,0,.02);}
+  .modal textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring);}
+  .modal-actions{display:flex;align-items:center;gap:10px;margin-top:18px;}
+  @keyframes overlayIn{from{opacity:0}to{opacity:1}}
+  @keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;}}
+  @media (max-width: 768px) {
+    header { padding: 12px 16px; gap: 12px; }
+    .theme-pick { margin-left: 0; width: 100%; justify-content: space-between; }
+    .toolbar { gap: 8px; }
+    .spacer { margin-left: 0; width: 100%; }
+    .filters { width: 100%; display: flex; }
+    .filters button { flex: 1; text-align: center; }
+    th, td { padding: 10px 12px; font-size: 13.5px; }
+  }
+</style>
+<script>
+  (function(){ try { var t = localStorage.getItem('ui_theme') || 'company-fresh'; document.documentElement.setAttribute('data-theme', t); } catch(e) { document.documentElement.setAttribute('data-theme','company-fresh'); } })();
+</script>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="4.5" width="18" height="3.4" rx="1.7"/><rect x="3" y="10.3" width="12.5" height="3.4" rx="1.7" opacity=".68"/><rect x="3" y="16.1" width="7" height="3.4" rx="1.7" opacity=".42"/></svg></span>
+    <h1>メール重要度分類</h1>
+  </div>
+  <span id="status" class="status">読み込み中…</span>
+  <div class="theme-pick">
+    <label for="themeSelect">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 2 12 22Z"/><path d="M12 2V22C5 22 3 15 3 12C3 9 5 2 12 2Z" fill="currentColor"/></svg>
+      テーマ
+    </label>
+    <select id="themeSelect">
+      <option value="company-fresh">会社／さわやか（30代エンジニア）</option>
+      <option value="company-efficient">会社／効率重視（50代エンジニア）</option>
+      <option value="company-exec">会社／マネジメント（部門長）</option>
+      <option value="cafe-soft">カフェ／やわらか（フリーランス）</option>
+      <option value="cafe-dark">カフェ／ダーク（フリーランス）</option>
+    </select>
+  </div>
+</header>
+<div class="wrap">
+  <div class="toolbar">
+    <button id="run" class="primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.6 4.4L18 10l-4.4 1.6L12 16l-1.6-4.4L6 10l4.4-1.6z"/><path d="M18.6 14.4l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z"/></svg><span class="btn-label">今すぐ取得・分類</span></button>
+    <button id="apply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 11.6 4.4a2 2 0 0 0-1.4-.6H5a1 1 0 0 0-1 1v5.2a2 2 0 0 0 .6 1.4l9 9a2 2 0 0 0 2.8 0l4.2-4.2a2 2 0 0 0 0-2.8z"/><circle cx="7.6" cy="7.6" r="1.3"/></svg><span class="btn-label">カテゴリを反映</span></button>
+    <button id="reload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 0 1 14.5-6"/><path d="M18.5 3.5v3.5H15"/><path d="M20.5 12a8.5 8.5 0 0 1-14.5 6"/><path d="M5.5 20.5V17H9"/></svg>再読み込み</button>
+    <div class="filters spacer">
+      <button data-min="" class="active">すべて</button>
+      <button data-min="3">3+</button>
+      <button data-min="4">4+</button>
+      <button data-min="5">5</button>
+    </div>
+    <button id="toggleSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h7"/><path d="M16 8h3"/><circle cx="14" cy="8" r="2"/><path d="M5 16h3"/><path d="M12 16h7"/><circle cx="10" cy="16" r="2"/></svg>設定</button>
+  </div>
+
+  <div id="settings" class="panel hidden">
+    <h2>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      確認するフォルダ
+    </h2>
+    <p class="hint">チェックしたフォルダのメールだけを取得・分類します。未選択の場合は受信トレイのみが対象です。一覧の取得には Outlook の起動が必要です。</p>
+    <div id="folderSummary" class="folder-empty"></div>
+    <div class="save-row" style="margin: 8px 0;">
+      <button id="loadFolders">フォルダ一覧を取得</button>
+      <span id="folderMsg" class="save-msg"></span>
+    </div>
+    <div id="folderList" class="folder-list hidden"></div>
+    <div class="save-row" id="folderSaveRow" style="margin-top: 10px; display: none;">
+      <button id="saveFolders" class="primary">この範囲を保存</button>
+      <span id="folderSaveMsg" class="save-msg"></span>
+    </div>
+    <hr class="sep">
+    <h2>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"/></svg>
+      分類基準の編集
+    </h2>
+    <p class="hint">ここを変えると、次に「今すぐ取得・分類」を押した時から判定に反映されます。保存時は自動でバックアップ（criteria.json.bak）を取ります。</p>
+    <div class="field">
+      <label>重要度の定義 <span class="sub">各レベルがどんなメールかを書きます</span></label>
+      <div class="levels" id="levels"></div>
+    </div>
+    <div class="field">
+      <label>重要度を上げるキーワード <span class="sub">改行またはカンマ区切り</span></label>
+      <textarea id="priority_keywords" rows="2"></textarea>
+    </div>
+    <div class="field">
+      <label>重要度を下げる（無視寄り）キーワード <span class="sub">改行またはカンマ区切り</span></label>
+      <textarea id="ignore_keywords" rows="2"></textarea>
+    </div>
+    <div class="field">
+      <label>重要な送信者 <span class="sub">メールアドレスを改行区切りで</span></label>
+      <textarea id="priority_senders" rows="2"></textarea>
+    </div>
+    <div class="field">
+      <label>補足メモ <span class="sub">判断の方針など（任意）</span></label>
+      <textarea id="notes" rows="2"></textarea>
+    </div>
+    <div class="field">
+      <label>返信ドラフトの方針 <span class="sub">返信案を作るときの書き方の指示（任意）</span></label>
+      <textarea id="reply_instruction" rows="2"></textarea>
+    </div>
+    <div class="save-row">
+      <button id="saveCriteria" class="primary">基準を保存</button>
+      <span id="saveMsg" class="save-msg"></span>
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:110px">重要度</th>
+          <th style="width:130px">受信日時</th>
+          <th style="width:180px">送信者</th>
+          <th>件名 / 理由</th>
+          <th style="width:90px">手直し</th>
+          <th style="width:100px">返信</th>
+        </tr>
+      </thead>
+      <tbody id="rows"><tr><td colspan="6" class="empty">読み込み中…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="draftModal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>返信ドラフト</h3>
+    <p class="modal-note">これは下書きの作成のみで、送信はしません。内容を確認・修正して「Outlookに下書き保存」を押すと、Outlookの下書きフォルダーに保存されます。送信はOutlookでご自身で行ってください。</p>
+    <div id="draftTarget" class="meta" style="margin-bottom:12px; font-weight:600;"></div>
+    <textarea id="draftText" rows="12" placeholder="生成中…"></textarea>
+    <div class="modal-actions">
+      <button id="regenDraft">再生成</button>
+      <span style="flex:1"></span>
+      <button id="closeDraft">閉じる</button>
+      <button id="saveDraft" class="primary">Outlookに下書き保存</button>
+    </div>
+    <div id="draftMsg" class="save-msg" style="margin-top:8px;"></div>
+  </div>
+</div>
+
+<script>
+let currentMin = "";
+
+function fmtDate(s) {
+  if (!s) return "";
+  const d = new Date(s);
+  if (isNaN(d)) return s;
+  return d.toLocaleString("ja-JP", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+function esc(s) { return (s || "").replace(/</g, "&lt;"); }
+function setBtnLabel(btn, txt){ const l = btn.querySelector(".btn-label"); if (l) l.textContent = txt; else btn.textContent = txt; }
+function impBadge(v) {
+  if (v === null || v === undefined) return '<span class="imp imp-null">!</span>';
+  return `<span class="imp imp-${v}">${v}</span>`;
+}
+
+async function loadStatus() {
+  const el = document.getElementById("status");
+  try {
+    const s = await (await fetch("/api/status")).json();
+    if (s.config_missing && s.config_missing.length) {
+      el.className = "status warn";
+      el.textContent = "設定不足: " + s.config_missing.join(", ") + "（.env を確認してください）";
+      return;
+    }
+    el.className = "status";
+    const last = s.last_run_at ? fmtDate(s.last_run_at) : "未実行";
+    el.textContent = `最終取得: ${last} ／ Outlookを起動した状態でボタンを押してください`;
+  } catch (e) {
+    el.className = "status warn";
+    el.textContent = "ステータス取得に失敗しました";
+  }
+}
+
+async function loadMessages() {
+  const tbody = document.getElementById("rows");
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">読み込み中…</td></tr>';
+  const q = currentMin ? `?min_importance=${currentMin}` : "";
+  let data = [];
+  try {
+    data = await (await fetch("/api/messages" + q)).json();
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">取得に失敗しました</td></tr>';
+    return;
+  }
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">該当するメールはありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(m => {
+    const eff = m.effective_importance;
+    const corrected = m.corrected_importance != null ? '<div style="margin-top:4px;"><span class="tag corrected">手直し済</span></div>' : "";
+    const applied = m.applied_category ? '<div style="margin-top:4px;"><span class="tag applied">反映済</span></div>' : "";
+    const sel = [1,2,3,4,5].map(n => `<option value="${n}" ${n === eff ? "selected" : ""}>${n}</option>`).join("");
+    const reason = m.error ? "⚠ " + esc(m.error) : esc(m.reason);
+    const idAttr = escAttr(m.id);
+    return `<tr>
+      <td>
+        <div class="imp-col">
+          ${impBadge(eff)}
+          ${corrected}
+          ${applied}
+        </div>
+      </td>
+      <td class="meta">${fmtDate(m.received_at)}</td>
+      <td><strong>${esc(m.sender_name || m.sender_address)}</strong><div class="meta" style="font-size:11.5px; opacity:0.8;">${esc(m.sender_address)}</div></td>
+      <td><div class="subject">${esc(m.subject)}</div><div class="reason">${reason}</div>
+          ${m.model_used ? `<div style="margin-top:4px;"><span class="meta" style="font-size:11px; opacity:0.7;">model: ${esc(m.model_used)}</span></div>` : ""}</td>
+      <td><select data-id="${idAttr}" onchange="correct(this)">${sel}</select></td>
+      <td><button class="row-btn" onclick="openDraft('${jsArg(m.id)}','${jsArg(m.subject)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h8"/><path d="M16.5 3.5a2 2 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>下書き</button></td>
+    </tr>`;
+  }).join("");
+}
+
+async function correct(sel) {
+  const id = sel.getAttribute("data-id");
+  const importance = parseInt(sel.value, 10);
+  try {
+    await fetch(`/api/messages/${encodeURIComponent(id)}/correct`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ importance }),
+    });
+    loadMessages();
+  } catch (e) { alert("手直しの保存に失敗しました"); }
+}
+
+document.getElementById("run").addEventListener("click", async (e) => {
+  e.target.disabled = true; setBtnLabel(e.target, "実行中…");
+  try {
+    const r = await (await fetch("/api/run", { method: "POST" })).json();
+    await loadStatus(); await loadMessages();
+    alert(r.status === "ok"
+      ? `取得 ${r.fetched} 件 / 新規 ${r.new} 件 / 分類 ${r.classified} 件`
+      : (r.reason || (r.errors && r.errors.join(", ")) || "完了"));
+  } catch (err) { alert("実行に失敗しました（Outlookが起動しているか確認してください）"); }
+  finally { e.target.disabled = false; setBtnLabel(e.target, "今すぐ取得・分類"); }
+});
+
+document.getElementById("apply").addEventListener("click", async (e) => {
+  if (!confirm("分類結果を Outlook のメールに「重要度◯」というカテゴリ（色ラベル）として付けます。\nメールの移動・削除はしません。あとで Outlook 側で外せます。\n反映しますか？")) return;
+  e.target.disabled = true; setBtnLabel(e.target, "反映中…");
+  try {
+    const r = await (await fetch("/api/apply-categories", { method: "POST" })).json();
+    await loadMessages();
+    if (r.status === "ok") {
+      alert(r.reason ? r.reason : `${r.applied} 件に反映しました${r.failed ? `（失敗 ${r.failed} 件）` : ""}`);
+    } else {
+      alert("反映に失敗しました: " + (r.errors && r.errors.join(", ")));
+    }
+  } catch (err) { alert("反映に失敗しました（Outlookが起動しているか確認してください）"); }
+  finally { e.target.disabled = false; setBtnLabel(e.target, "カテゴリを反映"); }
+});
+
+document.getElementById("reload").addEventListener("click", () => { loadStatus(); loadMessages(); });
+
+document.querySelectorAll(".filters button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".filters button").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    currentMin = b.getAttribute("data-min");
+    loadMessages();
+  });
+});
+
+/* 設定パネル */
+const LV_COLORS = { 5:"imp-5",4:"imp-4",3:"imp-3",2:"imp-2",1:"imp-1" };
+function linesToText(arr) { return (arr || []).join("\n"); }
+function textToLines(t) { return t.split(/[\n,]/).map(s => s.trim()).filter(Boolean); }
+
+async function loadCriteria() {
+  const c = await (await fetch("/api/criteria")).json();
+  const levels = c.levels || {};
+  document.getElementById("levels").innerHTML = [5,4,3,2,1].map(n =>
+    `<div class="level-row"><span class="imp ${LV_COLORS[n]} lv">${n}</span>
+     <input type="text" id="lv-${n}" value="${(levels[n]||"").replace(/"/g,"&quot;")}"></div>`).join("");
+  document.getElementById("priority_keywords").value = linesToText(c.priority_keywords);
+  document.getElementById("ignore_keywords").value = linesToText(c.ignore_keywords);
+  document.getElementById("priority_senders").value = linesToText(c.priority_senders);
+  document.getElementById("notes").value = c.notes || "";
+  try {
+    const ri = await (await fetch("/api/reply-instruction")).json();
+    document.getElementById("reply_instruction").value = ri.instruction || "";
+  } catch (e) {}
+}
+
+document.getElementById("toggleSettings").addEventListener("click", async () => {
+  const panel = document.getElementById("settings");
+  const willShow = panel.classList.contains("hidden");
+  if (willShow) { await loadCriteria(); await loadFolderSummary(); }
+  panel.classList.toggle("hidden");
+});
+
+document.getElementById("saveCriteria").addEventListener("click", async (e) => {
+  const payload = {
+    levels: { 5:val("lv-5"),4:val("lv-4"),3:val("lv-3"),2:val("lv-2"),1:val("lv-1") },
+    priority_keywords: textToLines(val("priority_keywords")),
+    ignore_keywords: textToLines(val("ignore_keywords")),
+    priority_senders: textToLines(val("priority_senders")),
+    notes: val("notes"),
+  };
+  const msg = document.getElementById("saveMsg");
+  e.target.disabled = true;
+  try {
+    const res = await fetch("/api/criteria", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    await fetch("/api/reply-instruction", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instruction: val("reply_instruction") }),
+    });
+    if (res.ok) { msg.style.color = "var(--ok)"; msg.textContent = "✓ 保存しました"; }
+    else { const err = await res.json(); msg.style.color = "var(--warn)"; msg.textContent = "⚠ 保存できません: " + (err.detail || ""); }
+  } catch (err) { msg.style.color = "var(--warn)"; msg.textContent = "⚠ 保存に失敗しました"; }
+  finally { e.target.disabled = false; setTimeout(() => { msg.textContent = ""; }, 4000); }
+});
+function val(id) { return document.getElementById(id).value; }
+function jsArg(s) { return (s || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
+
+/* 返信ドラフト */
+let draftId = null;
+
+function openDraft(id, subject) {
+  draftId = id;
+  document.getElementById("draftTarget").textContent = "件名: " + (subject || "");
+  document.getElementById("draftMsg").textContent = "";
+  const ta = document.getElementById("draftText");
+  ta.value = ""; ta.disabled = true; ta.placeholder = "生成中…";
+  document.getElementById("draftModal").classList.remove("hidden");
+  generateDraft();
+}
+
+async function generateDraft() {
+  const ta = document.getElementById("draftText");
+  const msg = document.getElementById("draftMsg");
+  ta.disabled = true; ta.value = ""; ta.placeholder = "生成中…"; msg.textContent = "";
+  try {
+    const res = await fetch(`/api/messages/${encodeURIComponent(draftId)}/draft`, { method: "POST" });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || "失敗"); }
+    const r = await res.json();
+    ta.value = r.draft || "";
+    ta.disabled = false;
+  } catch (err) {
+    ta.placeholder = "生成に失敗しました";
+    msg.style.color = "var(--warn)"; msg.textContent = String(err.message || err);
+  }
+}
+
+document.getElementById("regenDraft").addEventListener("click", generateDraft);
+document.getElementById("closeDraft").addEventListener("click", () => {
+  document.getElementById("draftModal").classList.add("hidden");
+});
+document.getElementById("saveDraft").addEventListener("click", async (e) => {
+  const text = document.getElementById("draftText").value.trim();
+  const msg = document.getElementById("draftMsg");
+  if (!text) { msg.style.color = "var(--warn)"; msg.textContent = "本文が空です"; return; }
+  e.target.disabled = true;
+  try {
+    const res = await fetch(`/api/messages/${encodeURIComponent(draftId)}/save-draft`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || "失敗"); }
+    msg.style.color = "var(--ok)";
+    msg.textContent = "✓ Outlookの下書きフォルダーに保存しました。送信はOutlookで行ってください。";
+  } catch (err) { msg.style.color = "var(--warn)"; msg.textContent = String(err.message || err); }
+  finally { e.target.disabled = false; }
+});
+function escAttr(s) { return esc(s).replace(/"/g, "&quot;"); }
+
+/* 確認するフォルダ */
+let savedFolderIds = new Set();
+
+async function loadFolderSummary() {
+  try {
+    const r = await (await fetch("/api/scan-folders")).json();
+    const list = r.folders || [];
+    savedFolderIds = new Set(list.map(f => f.entry_id));
+    const el = document.getElementById("folderSummary");
+    if (!list.length) {
+      el.textContent = "現在の対象: 受信トレイのみ（未選択）";
+    } else {
+      const shown = list.map(f => f.path).slice(0, 5).join(" / ");
+      el.textContent = `現在の対象: ${list.length} フォルダ（${shown}${list.length > 5 ? " 他" : ""}）`;
+    }
+  } catch (e) {}
+}
+
+document.getElementById("loadFolders").addEventListener("click", async (e) => {
+  const msg = document.getElementById("folderMsg");
+  e.target.disabled = true; msg.style.color = "var(--muted)"; msg.textContent = "取得中…";
+  try {
+    const res = await fetch("/api/folders");
+    if (!res.ok) { const err = await res.json(); throw new Error(err.detail || "失敗"); }
+    const data = await res.json();
+    renderFolders(data.folders || []);
+    msg.textContent = "";
+  } catch (err) {
+    msg.style.color = "var(--warn)";
+    msg.textContent = "取得できません（Outlookを起動してください）";
+  } finally { e.target.disabled = false; }
+});
+
+function renderFolders(folders) {
+  const box = document.getElementById("folderList");
+  if (!folders.length) {
+    box.innerHTML = '<div class="folder-empty">フォルダが見つかりませんでした</div>';
+  } else {
+    const groups = {};
+    folders.forEach(f => { (groups[f.store] = groups[f.store] || []).push(f); });
+    let html = "";
+    Object.keys(groups).forEach(store => {
+      html += `<div class="folder-store">${esc(store)}</div>`;
+      groups[store].forEach(f => {
+        const checked = savedFolderIds.has(f.entry_id) ? "checked" : "";
+        const indent = (f.depth || 0) * 16;
+        html += `<label class="folder-item" style="margin-left:${indent}px" title="${escAttr(f.path)}">
+          <input type="checkbox" data-entry="${escAttr(f.entry_id)}" data-store="${escAttr(f.store_id)}" data-path="${escAttr(f.path)}" ${checked}>
+          ${esc(f.name)}</label>`;
+      });
+    });
+    box.innerHTML = html;
+  }
+  box.classList.remove("hidden");
+  document.getElementById("folderSaveRow").style.display = "flex";
+}
+
+document.getElementById("saveFolders").addEventListener("click", async (e) => {
+  const boxes = document.querySelectorAll('#folderList input[type=checkbox]:checked');
+  const folders = Array.from(boxes).map(b => ({
+    entry_id: b.getAttribute("data-entry"),
+    store_id: b.getAttribute("data-store"),
+    path: b.getAttribute("data-path"),
+  }));
+  const msg = document.getElementById("folderSaveMsg");
+  e.target.disabled = true;
+  try {
+    const res = await fetch("/api/scan-folders", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folders }),
+    });
+    const r = await res.json();
+    msg.style.color = "var(--ok)";
+    msg.textContent = folders.length ? `✓ ${r.count} フォルダを対象に保存しました` : "✓ 未選択（受信トレイのみ）で保存しました";
+    await loadFolderSummary();
+  } catch (err) { msg.style.color = "var(--warn)"; msg.textContent = "保存に失敗しました"; }
+  finally { e.target.disabled = false; setTimeout(() => { msg.textContent = ""; }, 4000); }
+});
+
+/* テーマ選択 */
+const themeSelect = document.getElementById("themeSelect");
+themeSelect.value = document.documentElement.getAttribute("data-theme") || "company-fresh";
+themeSelect.addEventListener("change", () => {
+  document.documentElement.setAttribute("data-theme", themeSelect.value);
+  try { localStorage.setItem("ui_theme", themeSelect.value); } catch (e) {}
+});
+
+loadStatus();
+loadMessages();
+</script>
+</body>
+</html>
